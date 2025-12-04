@@ -161,19 +161,25 @@ var instructions : Dictionary[String,Callable] = {
 };
 
 func SET(id:TweenputParser.LangNode,expr:TweenputParser.LangNode):
-	if id is not TweenputParser.LIdentifier and id is not TweenputParser.LMethodAccess: 
+	if id is not TweenputParser.LVar: 
 		push_error("Tweenput: SET -> 1º param not a variable");
 		return;
 	
 	var var_name : String = id.node_name;
 	var value = expr.value();
-	if id is TweenputParser.LMethodAccess:
-		var path := var_name.split('.',false);
-		var ref : Object = parser.variables[path[0]] as Object;
-		for i in range(1,path.size()-1): ref = (ref as Object).get(path[i]);
-		ref.set(path[path.size()-1],value);
-	else: 
-		parser.variables[var_name] = value;
+	
+	var ref := id;
+	while ref and (ref is not TweenputParser.LIdentifier):
+		ref = null;
+	
+	#if id is TweenputParser.LDeReference:
+		#var path := var_name.split('.',false);
+		#var ref : Object = parser.variables[path[0]] as Object;
+		#for i in range(1,path.size()-1): ref = (ref as Object).get(path[i]);
+		#ref.set(path[path.size()-1],value);
+		##...
+	#else: 
+		#parser.variables[var_name] = value;
 	print("SET %s , %s"%[var_name,value]);
 
 func SWAP(a:TweenputParser.LangNode,b:TweenputParser.LangNode):
@@ -381,10 +387,10 @@ func END(ctx:Context):
 	return;
 
 
-func QTE(center:TweenputParser.LangNode,radius:TweenputParser.LangNode,
-		pre:TweenputParser.LangNode,post:TweenputParser.LangNode,
-		valid:TweenputParser.LangNode=null,invalid:TweenputParser.LangNode=null,
-		channel:TweenputParser.LangNode=null):
+func QTE(_center:TweenputParser.LangNode,_radius:TweenputParser.LangNode,
+		_pre:TweenputParser.LangNode,_post:TweenputParser.LangNode,
+		_valid:TweenputParser.LangNode=null,_invalid:TweenputParser.LangNode=null,
+		_channel:TweenputParser.LangNode=null):
 	pass
 
 #endregion

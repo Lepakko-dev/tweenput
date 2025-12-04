@@ -6,8 +6,6 @@ class_name TweenputParser
 
 #region Grammar
 # Most lookarounds are there to avoid conflict with our language collapser or grammar rules.
-const H =		r"(?:[^\S\n])"
-const SEP =		r"(?:[^\S\n]*)"
 const STRING =	r'"(?<val>(?:[^"\n]|(?:\\"))*)"'
 const CONST =	r"(?<![A-Za-z_#]{1,9}\d{0,9})(?:(?<bin>0b(?:[0-1])+)|(?<hex>0x(?:\d|[a-f])+)|(?<dec>\d+(?:\.\d*)?))"
 const ID =		r"(?<obj>[a-zA-Z_]\w*)"
@@ -36,10 +34,12 @@ const TWEEN_EXE =	LOOKBREAK+r"(?<tween>[a-zA-Z_]\w*)"
 const LINE =		"("+INSTR+"|"+TWEEN_DEF+"|"+LABEL+"|"+TWEEN_EXE+")"
 const S = 			"^"+LINE+"("+BREAK+LINE+")*"+BREAK+"?$"
 
+const H =		r"(?:[^\S\n])"
+const SEP =		r"(?:[^\S\n]*)"
 const BREAK =	r"(?:(?:\n|;|^)\s*)"
 const LOOKBREAK = r"(?<=(?:\n|;|^)\s{0,99})"
 const COMMENT = r'(?<!(\n|^)[^"]{0,99}"[^"]{0,99})#[^\n]*' # Huge lookbehind to not take comments inside string literals
-const CNODE = 	r"#(?<id>\d+)";
+const CNODE = 	r"(?<id>#\d+)";
 
 var _rconst := RegEx.new();
 var _rstring := RegEx.new();
@@ -72,6 +72,7 @@ var _rs := RegEx.new();
 var _rcomment = RegEx.new();
 
 var _rnode := RegEx.new();
+var _rid_aux := RegEx.new();
 
 func _compile_regex():
 	_rconst.compile(CONST);
@@ -106,6 +107,7 @@ func _compile_regex():
 	_rcomment.compile(COMMENT);
 	
 	_rnode.compile(CNODE);
+	_rid_aux.compile(CNODE+r"(?<op>\(|\[)");
 #endregion
 
 ## Instructions valid inside a Tween definition only.
@@ -200,6 +202,17 @@ class LConst extends LangNode:
 	func value() -> Variant:
 		return _val;
 
+class LConstArray extends LangNode:
+	var _elems : Array[LangNode];
+	func _init(elems:Array[LangNode]) -> void:
+		_elems = elems;
+	func value() -> Variant:
+		var array = [];
+		for elem in _elems:
+			if elem:
+				array.append(elem.value());
+		return array;
+
 class LTweenDef extends LangNode:
 	var _instr_list : Array[LInstrTween];
 	var _parser : TweenputParser;
@@ -241,7 +254,9 @@ class LTweenExe extends LInstr:
 
 ## Groups all nodes that handle variable data 
 ## (to group nodes usually checked together in instructions)
-@abstract class LVar extends LangNode: pass
+@abstract class LVar extends LangNode:
+	## Stores the parent reference (necessary due to de-reference working in opposite order)
+	var ref_ctx : Variant;
 
 class LIdentifier extends LVar:
 	var _parser : TweenputParser;
@@ -249,7 +264,14 @@ class LIdentifier extends LVar:
 		node_name = name;
 		_parser = parser;
 	func value() -> Variant:
-		return _parser.variables.get(node_name);
+		if ref_ctx:
+			if ref_ctx is Object:
+				return ref_ctx.get(node_name);
+			else:
+				_parser.error_out.error("Variable must belong to an object of type Object.");
+				return null;
+		else:
+			return _parser.variables.get(node_name);
 
 @abstract class LBinOp extends LVar:
 	var a : LangNode;
@@ -258,40 +280,32 @@ class LIdentifier extends LVar:
 		a = left_var; 
 		b = right_var;
 
-class LMethodAccess extends LBinOp: # '.' operator
+class LDeReference extends LBinOp: # '.' operator
 	var _parser: TweenputParser;
 	func _init(left_var: LangNode, right_var:LangNode, parser:TweenputParser):
 		super(left_var,right_var);
 		_parser = parser;
-		if a is not LIdentifier and a is not LMethodCall and a is not LMethodAccess:
+		if a is not LVar:
 			parser.error_out.error("Trying to access method or variable from invalid node.")
-		if b is not LIdentifier and b is not LMethodCall:
+		if b is not LVar:
 			parser.error_out.error("Trying to access an invalid method or variable node.");
 		node_name = "%s.%s"%[a.node_name,b.node_name];
-		
+	
+	## Returns the recursively de-referenced value of the operation.
 	func value() -> Variant:
-		var aux : Variant = a.value(); # variable or return value of method call
-		if aux is Object:
-			if b is LIdentifier: 
-				return aux.get(b.node_name);
-			elif b is LMethodCall:
-				var updated_params : Array;
-				for p in b._params: updated_params.append(p.value());
-				return aux.call(b.node_name,updated_params);
-			else:
-				_parser.error_out.error("Trying to access an invalid method or variable node.");
-		else: # Must be another type of Variant
-			var method_name : String = b.node_name;
-			var method := TweenputInstructions.reflect(aux,method_name);
-			if method.is_valid():
-				var updated_params : Array;
-				for p in b._params: updated_params.append(p.value());
-				return method.bindv(updated_params).call(aux);
-			else:
-				_parser.error_out.error("Invalid method or not implemented (%s)"%method_name);
+		var aux : Variant;
+		if ref_ctx: aux = ref_ctx;
+		else: aux = a.value();
+		
+		if b is LVar:
+			b.ref_ctx = aux;
+			return b.value();
+		else:
+			_parser.error_out.error("Trying to access an invalid method or variable node.");
 		return null;
 
 class LMethodCall extends LVar: # Call to godot methods "method(params)".
+	var _node : LVar;
 	var _params : Array[LangNode];
 	var _parser : TweenputParser;
 	var _cached_instr : Callable;
@@ -299,10 +313,70 @@ class LMethodCall extends LVar: # Call to godot methods "method(params)".
 		node_name = id;
 		_params = params;
 		_parser = parser;
-		_cached_instr = TweenputInstructions.construct(node_name);
+		_node = parser._collapse_map.get(id);
+		if not _node:
+			parser.error_out.error("Operator [] is trying to access an unknown node (%s)."%id);
+			return;
+		_cached_instr = TweenputInstructions.construct(_node.node_name);
 	func value() -> Variant:
-		if not _cached_instr.is_valid(): _parser.error_out.error("Unknown constuctor (%s)"%node_name);
-		return _cached_instr.call(_params);
+		var method_name := _node.node_name;
+		if ref_ctx: # Method from an object
+			if ref_ctx is Object: # Can use reflection
+				if not ref_ctx.has_method(method_name):
+					_parser.error_out.error("Invalid method '%s' of object '%s'"%[method_name,ref_ctx]);
+					return null;
+				var updated_params : Array;
+				for p in _params: updated_params.append(p.value());
+				return ref_ctx.call(method_name,updated_params);
+			else: # Another type of variant (Manual Reflection)
+				var method := TweenputInstructions.reflect(ref_ctx,method_name);
+				if method.is_valid():
+					var updated_params : Array;
+					for p in _params: 
+						if p:
+							updated_params.append(p.value());
+					return method.bindv(updated_params).call(ref_ctx);
+				else:
+					_parser.error_out.error("Invalid method or not implemented (%s)"%method_name);
+			return null;
+		else: #Standalone method (Constructors, etc)
+			if not _cached_instr.is_valid(): 
+				_parser.error_out.error("Unknown constuctor (%s)"%method_name);
+			return _cached_instr.call(_params);
+
+class LArrayAccess extends LVar: # var[index]
+	var _node : LVar;
+	var _idx : LangNode;
+	var _parser : TweenputParser;
+	func _init(id:String, idx:LangNode, parser:TweenputParser):
+		node_name = id;
+		_idx = idx;
+		_parser = parser;
+		_node = parser._collapse_map.get(id);
+		if not _node:
+			parser.error_out.error("Operator [] is trying to access an unknown node (%s)."%id);
+	func value() -> Variant:
+		var idx = _idx.value();
+		var container:Variant;
+		var method : Callable;
+		var method_name := _node.node_name;
+		if ref_ctx: # Container is member of some object
+			if ref_ctx is Object:
+				if _node is LIdentifier: container = ref_ctx.get(method_name);
+				else: container = null;
+			else: # Need to manually reflect
+				container = TweenputInstructions.reflect(ref_ctx,method_name).call();
+			if not container:
+				pass
+		else: # Container is a true variable (managed by the parser)
+			container = _parser.variables.get(method_name);
+		
+		method = TweenputInstructions.reflect(container,"[]");
+		if method.is_valid():
+			return method.call(container,idx);
+		else:
+			_parser.error_out.error("Variable '%s' can't use the [] operator."%method_name);
+			return null;
 
 @abstract class LUnary extends LVar:
 	var node : LangNode;
@@ -395,25 +469,6 @@ func _remove_comments(text:String) -> String:
 		comment_match = _rcomment.search(text,i);
 	return text;
 
-## Instruction separation
-func _collapse_instr(text:String) -> String:	
-	var instr := _rinstr.search(text);
-	while instr:
-		var key := _make_node_id();
-		var idx := instr.get_start();
-		var full := instr.get_string();
-		var instr_name := instr.get_string("instr");
-		var params := instr.get_string("params");
-		
-		if params.is_empty() and instr_name in _tween_map: # Must be a tween call
-			_collapse_map[key] = LTweenExe.new(instr_name,self);
-		else: # It's a regular instruction
-			var nodes := _collapse_params(params);
-			_collapse_map[key] = LInstr.new(instr_name,nodes,self);
-		text = text.erase(idx,full.length()).insert(idx,key+"\n");
-		instr = _rinstr.search(text);
-	return text;
-
 ## Easy One Off Values (literals)
 func _collapse_literals(text:String) -> String:
 	var string := _rstring.search(text);
@@ -443,18 +498,6 @@ func _collapse_literals(text:String) -> String:
 		text = text.erase(idx,val.length()).insert(idx,key);
 		const_ = _rconst.search(text);
 	return text;
-
-func _collapse_params(text:String) -> Array[LangNode]:
-	if text.is_empty(): return [];
-	text = _collapse_recursion(text);
-	var nodes : Array[LangNode];
-	for param in text.split(','):
-		var id := param.strip_edges();
-		if id.is_empty(): nodes.append(null);
-		else:
-			if _collapse_map.has(id): nodes.append(_collapse_map[id]);
-			else: error_out.error("Incorrect ID as a parameter (%s)"%id);
-	return nodes;
 
 ## Stores Label references and collapses them
 func _collapse_labels(text:String) -> String:
@@ -506,90 +549,137 @@ func _collapse_t_instr(text:String, list:Array[LInstrTween]) -> String:
 		instr = _rinstr.search(text);
 	return text;
 
-## Search recursive pattern of method calls from IDs.
-func _collapse_recursion(text:String) -> String:
-	var identifier := _rid.search(text);
-	# Find all identifiers that are method calls
-	while identifier:
-		var id_name := identifier.get_string();
-		var search_rec_idx := identifier.get_end();
-		if search_rec_idx < text.length() and text[search_rec_idx] == '(': # It's a method call
-			# Find its respective closing parenthesis
-			search_rec_idx += 1;
-			var start_rec_idx := search_rec_idx;
-			var depth := 1;
-			while search_rec_idx < text.length() and depth > 0:
-				var c := text[search_rec_idx];
-				if c  == '(': depth += 1;
-				elif c  == ')': depth -= 1;
-				search_rec_idx += 1;
-			
-			# Obtain final value of the current recursion
-			if depth > 0: # Bad grammar, open parenthesis should have closing pair
-				error_out.error("Parse error, method %s doesn't have closing parenthesis."%id_name);
-				return "";
-			var rec_len := (search_rec_idx-1) - start_rec_idx;
-			var param_nodes := _collapse_params(text.substr(start_rec_idx,rec_len))
-			
-			var key := _make_node_id();
-			_collapse_map[key] = LMethodCall.new(id_name,param_nodes,self);
-			var idx := identifier.get_start();
-			text = text.erase(idx,id_name.length()+rec_len+2).insert(idx,key);
-		else: # Just a normal identifier
-			var key := "";
-			if id_name.to_upper() in instructions:
-				error_out.error("Bad variable name. Variables cannot have the same name as instructions (%s)"%id_name);
-			else:
-				key = _make_node_id();
-				_collapse_map[key] = LIdentifier.new(id_name,self);
-			var idx := identifier.get_start();
-			text = text.erase(idx,id_name.length()).insert(idx,key);
-		identifier = _rid.search(text);
-	
-	text = _collapse_recursion_2(text);
+## Instruction separation
+func _collapse_instr(text:String) -> String:	
+	var instr := _rinstr.search(text);
+	while instr:
+		var key := _make_node_id();
+		var idx := instr.get_start();
+		var full := instr.get_string();
+		var instr_name := instr.get_string("instr");
+		var params := instr.get_string("params");
+		
+		if params.is_empty() and instr_name in _tween_map: # Must be a tween call
+			_collapse_map[key] = LTweenExe.new(instr_name,self);
+		else: # It's a regular instruction
+			var nodes := _collapse_params(params);
+			_collapse_map[key] = LInstr.new(instr_name,nodes,self);
+		text = text.erase(idx,full.length()).insert(idx,key+"\n");
+		instr = _rinstr.search(text);
 	return text;
 
-## Search recursive pattern of standalone parenthesis
-func _collapse_recursion_2(text:String) -> String:
-	# Find opening parenthesis
-	var idx := 0;
-	for c in text:
-		if c == '(': break;
-		idx += 1;
-	
-	if idx == text.length(): # No recursion found, must be simple expression.
-		text = _collapse_expr(text);
-		return text;
-	
-	var depth := 0;
-	var end := 0;
-	for i in range(idx,text.length()):
-		var c := text[i];
-		if c == '(':
-			depth += 1;
-		elif c == ')':
-			depth -= 1;
-			if depth == 0: # Pair found
-				end = i;
-				break;
-	if depth > 0: # Bad grammar, open parenthesis should have closing pair
-		error_out.error("Parse error, expression in '%s' doesn't have closing parenthesis."%text);
-		return "";
-	
-	# Obtain final value of the outermost recursion (without parenthesis)
-	idx -= 1;
-	var rec_len := (end - idx) - 1;
-	var sub_str := text.substr(idx,rec_len);
-	var colapsed_params := _collapse_recursion_2(sub_str);
-	
-	# If collapse returned more than one node, then the code has bad grammar.
-	var param_nodes := _rnode.search_all(colapsed_params);
-	if param_nodes.size() > 1:
-		error_out.error("Parse error, bad grammar at '%s'"%sub_str);
-		return "";
-	
-	text = text.erase(idx,rec_len+1).insert(idx,colapsed_params);
+func _collapse_params(text:String) -> Array[LangNode]:
+	if text.is_empty(): return [];
+	text = _collapse_identifiers(text);
+	text = _collapse_recursion(text);
+	var nodes : Array[LangNode];
+	for param in text.split(','):
+		var id := param.strip_edges();
+		if id.is_empty(): nodes.append(null);
+		else:
+			if _collapse_map.has(id): nodes.append(_collapse_map[id]);
+			else: error_out.error("Incorrect ID as a parameter (%s)"%id);
+	return nodes;
+
+func _collapse_identifiers(text:String) -> String:
+	var identifier := _rid.search(text);
+	while identifier:
+		var id_name := identifier.get_string();
+		var key := "";
+		if id_name.to_upper() in instructions:
+			error_out.error("Bad variable name. Variables cannot have the same name as instructions (%s)"%id_name);
+		else:
+			key = _make_node_id();
+			_collapse_map[key] = LIdentifier.new(id_name,self);
+		var idx := identifier.get_start();
+		text = text.erase(idx,id_name.length()).insert(idx,key);
+		identifier = _rid.search(text);
 	return text;
+
+## Search recursive patterns of parenthesis, method calls and array indexing.
+func _collapse_recursion(text:String) -> String:
+	var res := _find_recursion_positions(text);
+	while res.x >= 0: # Recursion found!
+		var c := text[res.x];
+		
+		var sub_str := text.substr(res.x+1,res.y-2); # Get inner expression (without parenthesis)
+		var collapsed_exprs :=  _collapse_recursion(sub_str); # Collapse inner recursions first (if any).
+		var ids := collapsed_exprs.split(",");
+		
+		var nodes : Array[LangNode];
+		for id in ids: nodes.append(_collapse_map.get(id.strip_edges()));
+		
+		if res.z >= 0: # Method Call or Array Access
+			var id_name := text.substr(res.z,res.x-res.z);
+			if c == "(":
+				var key := _make_node_id();
+				_collapse_map[key] = LMethodCall.new(id_name,nodes,self);
+				text = text.erase(res.z,id_name.length()+res.y+2).insert(res.z,key);
+			else:
+				if ids.size() != 1:
+					error_out.error("Operator [] must have exactly one parameter (%s)"%sub_str);
+					return "";
+				var key := _make_node_id();
+				_collapse_map[key] = LArrayAccess.new(id_name,nodes[0],self);
+				text = text.erase(res.z,id_name.length()+res.y).insert(res.z,key);
+		else: # Recursive Expr or Array Constructor
+			if c == "(":
+				if ids.size() != 1:
+					error_out.error("Recursive expressions must have exactly one parameter (%s)"%sub_str);
+					return "";
+				text = text.erase(res.x,res.y).insert(res.x,collapsed_exprs.strip_edges());
+			else:
+				var key := _make_node_id();
+				_collapse_map[key] = LConstArray.new(nodes);
+				text = text.erase(res.x,res.y).insert(res.x,key);
+
+		res = _find_recursion_positions(text);
+
+	# No recursion left, can collapse expressions
+	text = _collapse_expr(text);
+	return text;
+
+## x component is index of symbol, y component is recursion's length, z component is index of first ID. 
+## Both values can be -1 if didn't find its respective characters.
+func _find_recursion_positions(text:String) -> Vector3i:
+	var rec_start := -1;
+	var type : String;
+	var id_start := -1;
+	for i in text.length():
+		var c := text[i];
+		if c == "#": id_start = i;
+		if c == "(" or c == "[": 
+			rec_start = i;
+			type = c;
+			break;
+	if rec_start == -1: return Vector3i(-1,-1,-1);
+	# Find recursion ending symbol
+	var depth := 1;
+	var search_rec_idx := rec_start + 1;
+	if type == "(":
+		while search_rec_idx < text.length() and depth > 0:
+			var c := text[search_rec_idx];
+			if c  == '(': depth += 1;
+			elif c  == ')': depth -= 1;
+			search_rec_idx += 1;
+	elif type == "[":
+		while search_rec_idx < text.length() and depth > 0:
+			var c := text[search_rec_idx];
+			if c  == '[': depth += 1;
+			elif c  == ']': depth -= 1;
+			search_rec_idx += 1;
+	if depth > 0: # Bad grammar, open parenthesis should have closing pair
+		error_out.error("Parse error, recursion in '%s' doesn't have its respective ending symbol."%text);
+		return Vector3i(-1,-1,-1);
+	
+	if id_start >= 0:
+		# Check if recursion belongs to the id (discarded if not)
+		var number := text.substr(id_start+1,rec_start-(id_start+1));
+		if not number.is_valid_int():
+			id_start = -1; # Discard
+
+	var rec_len := search_rec_idx - rec_start;
+	return Vector3i(rec_start,rec_len,id_start);
 
 ## Focus on operators
 func _collapse_expr(text:String) -> String:
@@ -603,7 +693,7 @@ func _collapse_expr(text:String) -> String:
 		
 		var p := access.get_string("parent");
 		var m := access.get_string("member");
-		_collapse_map[key] = LMethodAccess.new(_collapse_map[p],_collapse_map[m],self);
+		_collapse_map[key] = LDeReference.new(_collapse_map[p],_collapse_map[m],self);
 		access = _rma.search(text);
 	
 	var unary := _runa.search(text);

@@ -112,6 +112,7 @@ static var string_methods : Dictionary[String,Callable] = {
 	"to_int":_to_int,
 	"to_lower":_to_lower,
 	"to_upper":_to_upper,
+	"[]":_string_arr,
 };
 static func _contains(ref:String, what:String)-> bool: return ref.contains(what);
 static func _erase(ref:String, position:int,chars:int=1)-> String: return ref.erase(position,chars);
@@ -125,6 +126,49 @@ static func _to_float(ref:String)-> float: return ref.to_float();
 static func _to_int(ref:String)-> int: return ref.to_int();
 static func _to_lower(ref:String)-> String: return ref.to_lower();
 static func _to_upper(ref:String)-> String: return ref.to_upper();
+static func _string_arr(ref:String,idx:int)-> String: return ref[idx];
+#endregion
+#region Vector2
+static var vector2_methods : Dictionary[String,Callable] = {
+	"[]":_vec2_arr,
+};
+static func _vec2_arr (ref:Vector2,idx:int)-> float: return ref[idx];
+#endregion
+#region Vector2i
+static var vector2i_methods : Dictionary[String,Callable] = {
+	"[]":_vec2i_arr,
+};
+static func _vec2i_arr (ref:Vector2i,idx:int)-> int: return ref[idx];
+#endregion
+#region Vector3
+static var vector3_methods : Dictionary[String,Callable] = {
+	"[]":_vec3_arr,
+};
+static func _vec3_arr (ref:Vector3,idx:int)-> float: return ref[idx];
+#endregion
+#region Vector3i
+static var vector3i_methods : Dictionary[String,Callable] = {
+	"[]":_vec3i_arr,
+};
+static func _vec3i_arr (ref:Vector3i,idx:int)-> int: return ref[idx];
+#endregion
+#region Vector4
+static var vector4_methods : Dictionary[String,Callable] = {
+	"[]":_vec4_arr,
+};
+static func _vec4_arr (ref:Vector4,idx:int)-> float: return ref[idx];
+#endregion
+#region Vector4i
+static var vector4i_methods : Dictionary[String,Callable] = {
+	"[]":_vec4i_arr,
+};
+static func _vec4i_arr (ref:Vector4i,idx:int)-> int: return ref[idx];
+#endregion
+#region Color
+static var color_methods : Dictionary[String,Callable] = {
+	"[]":_color_arr,
+};
+static func _color_arr (ref:Color,idx:int)-> float: return ref[idx];
 #endregion
 #region Callable
 static var callable_methods : Dictionary[String,Callable] = {
@@ -146,9 +190,72 @@ static func _is_null(ref:Callable) -> bool: return ref.is_null();
 static func _is_valid(ref:Callable) -> bool: return ref.is_valid();
 static func _unbound(ref:Callable,argcount:int) -> Callable: return ref.unbind(argcount);
 #endregion
+#region Array
+static var array_methods : Dictionary[String,Callable] = {
+	"[]":_array_arr,
+};
+static func _array_arr (ref:Array,idx:int)-> Variant: return ref.get(idx);
+#endregion
+#region Dictionary
+static var dict_methods : Dictionary[String,Callable] = {
+	"[]":_dict_arr,
+};
+static func _dict_arr (ref:Dictionary,idx:Variant)-> Variant: return ref.get(idx);
+#endregion
+#region PackedArrays
+static var byte_arr_methods : Dictionary[String,Callable] = {
+	"[]":_pbyte_arr,
+};
+static func _pbyte_arr (ref:PackedByteArray,idx:int)-> int: return ref.get(idx);
+
+static var int32_arr_methods : Dictionary[String,Callable] = {
+	"[]":_pint32_arr,
+};
+static func _pint32_arr (ref:PackedInt32Array,idx:int)-> int: return ref.get(idx);
+
+static var int64_arr_methods : Dictionary[String,Callable] = {
+	"[]":_pint64_arr,
+};
+static func _pint64_arr (ref:PackedInt64Array,idx:int)-> int: return ref.get(idx);
+
+static var float32_arr_methods : Dictionary[String,Callable] = {
+	"[]":_pfloat32_arr,
+};
+static func _pfloat32_arr (ref:PackedFloat32Array,idx:int)-> float: return ref.get(idx);
+
+static var float64_arr_methods : Dictionary[String,Callable] = {
+	"[]":_pfloat64_arr,
+};
+static func _pfloat64_arr (ref:PackedFloat64Array,idx:int)-> float: return ref.get(idx);
+
+static var string_arr_methods : Dictionary[String,Callable] = {
+	"[]":_pstring_arr,
+};
+static func _pstring_arr (ref:PackedStringArray,idx:int)-> String: return ref.get(idx);
+
+static var vector2_arr_methods : Dictionary[String,Callable] = {
+	"[]":_pv2_arr,
+};
+static func _pv2_arr (ref:PackedVector2Array,idx:int)-> Vector2: return ref.get(idx);
+
+static var vector3_arr_methods : Dictionary[String,Callable] = {
+	"[]":_pv3_arr,
+};
+static func _pv3_arr (ref:PackedVector3Array,idx:int)-> Vector3: return ref.get(idx);
+
+static var color_arr_methods : Dictionary[String,Callable] = {
+	"[]":_pcolor_arr,
+};
+static func _pcolor_arr (ref:PackedColorArray,idx:int)-> Color: return ref.get(idx);
+
+static var vector4_arr_methods : Dictionary[String,Callable] = {
+	"[]":_pv4_arr,
+};
+static func _pv4_arr (ref:PackedVector4Array,idx:int)-> Vector4: return ref.get(idx);
+#endregion
 
 static func construct(type:String) -> Callable:
-	return constructors.get(type,null);
+	return constructors.get(type,Callable());
 
 static func reflect(obj:Variant, method:String) -> Callable:
 	var t := typeof(obj);
@@ -156,9 +263,13 @@ static func reflect(obj:Variant, method:String) -> Callable:
 	return dir.get(method,Callable());
 
 static var variants : Array[Dictionary] = [ # All 38 types of Variant ordered by Variant.TYPE
-	{},{},{},{},string_methods, {},{},{},{},{},
-	{},{},{},{},{}, {},{},{},{},{},
-	{},{},{},{},{}, callable_methods,{},{},{},{},
-	{},{},{},{},{}, {},{},{},{}
+	{},{},{},{},string_methods,
+	vector2_methods,vector2i_methods,{},{},vector3_methods,
+	vector3i_methods,{},vector4_methods,vector4i_methods,{},
+	{},{},{},{},{},
+	color_methods,{},{},{},{},
+	callable_methods,{},dict_methods,array_methods,byte_arr_methods,
+	int32_arr_methods,int64_arr_methods,float32_arr_methods,float64_arr_methods,string_arr_methods, 
+	vector2_arr_methods,vector3_arr_methods,color_arr_methods,vector4_arr_methods
 ]
 #endregion

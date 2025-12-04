@@ -14,15 +14,17 @@ anchor_right = 0.5
 anchor_bottom = 1.0
 offset_bottom = -50.0
 grow_vertical = 2
-text = "set x, 0
-call \"function\"
-set x,x+1
-END
+text = "set arr1,[]
+set arr2,[1,2,3,\"text\"]
+set arr1, arr2
+set a, arr1[0]
+set b, arr1[1]
+set c, arr1[2]
+set d, arr1[3]
 
-function:
-set x,x+1
-set y,x
-RET"
+set arr3, [9]
+set arr3[0],\"A\"
+set arr1, arr3"
 
 [node name="TOut" type="TextEdit" parent="."]
 anchors_preset = -1
