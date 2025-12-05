@@ -3,8 +3,6 @@ extends Node
 class_name Tweenterpreter
 ## Handles and run Tweenput code
 
-#TODO: Maybe create here the logger and pass it to the parser later?
-
 var parser: TweenputParser;
 var twc : TimeWindowController;
 
@@ -168,18 +166,59 @@ func SET(id:TweenputParser.LangNode,expr:TweenputParser.LangNode):
 	var var_name : String = id.node_name;
 	var value = expr.value();
 	
-	var ref := id;
-	while ref and (ref is not TweenputParser.LIdentifier):
-		ref = null;
+	# Finding leaf node
+	var leaf := id;
+	var must_dereference := false;
+	if leaf is TweenputParser.LDeReference:
+		leaf = leaf.b;
+		must_dereference = true;
+	elif leaf is TweenputParser.LBinOp:
+		push_error("Tweenput: SET -> Cannot assign a value to a volatile expression.");
+		return;
+	if leaf is TweenputParser.LMethodCall:
+		push_error("Tweenput: SET -> Cannot assign a value to a method call.");
+		return;
 	
-	#if id is TweenputParser.LDeReference:
-		#var path := var_name.split('.',false);
-		#var ref : Object = parser.variables[path[0]] as Object;
-		#for i in range(1,path.size()-1): ref = (ref as Object).get(path[i]);
-		#ref.set(path[path.size()-1],value);
-		##...
-	#else: 
-		#parser.variables[var_name] = value;
+
+	if must_dereference:
+		id.value(); # Force update value of variable 'ref_ctx'
+		var ref : Variant = (leaf as TweenputParser.LVar).ref_ctx;
+		if leaf is TweenputParser.LIdentifier:
+			ref.set(leaf.node_name,value);
+		elif leaf is TweenputParser.LArrayAccess:
+			var cont_name : String = leaf._node.node_name;
+			var container : Variant;
+			var idx : Variant = leaf._idx.value();
+			if ref is Object:
+				if leaf._node is TweenputParser.LIdentifier:
+					container = ref.get(cont_name);
+			else: # Need to manually reflect
+				container = TweenputInstructions.reflect(ref,cont_name).call();
+			if not container:
+				push_error("Couldn't retrieve container '%s' for operator []."%cont_name);
+				return;
+			var method := TweenputInstructions.reflect(container,"[]=");
+			if method.is_valid():
+				method.call(container,idx,value);
+			else:
+				push_error("Variable '%s' can't use the [] operator."%cont_name);
+				return;
+			var_name = cont_name+"[%s]"%idx;
+	else: # No de-referencing
+		if leaf is TweenputParser.LIdentifier:
+			parser.variables.set(leaf.node_name,value);
+		elif leaf is TweenputParser.LArrayAccess:
+			var cont_name : String = leaf._node.node_name;
+			var container : Variant = parser.variables.get(cont_name);
+			var idx : Variant = leaf._idx.value();
+			var method := TweenputInstructions.reflect(container,"[]=");
+			if method.is_valid():
+				method.call(container,idx,value);
+			else:
+				push_error("Variable '%s' can't use the [] operator."%cont_name);
+				return;
+			var_name = cont_name+"[%s]"%idx;
+
 	print("SET %s , %s"%[var_name,value]);
 
 func SWAP(a:TweenputParser.LangNode,b:TweenputParser.LangNode):

@@ -113,6 +113,7 @@ static var string_methods : Dictionary[String,Callable] = {
 	"to_lower":_to_lower,
 	"to_upper":_to_upper,
 	"[]":_string_arr,
+	"[]=":_string_arr_a,
 };
 static func _contains(ref:String, what:String)-> bool: return ref.contains(what);
 static func _erase(ref:String, position:int,chars:int=1)-> String: return ref.erase(position,chars);
@@ -127,48 +128,63 @@ static func _to_int(ref:String)-> int: return ref.to_int();
 static func _to_lower(ref:String)-> String: return ref.to_lower();
 static func _to_upper(ref:String)-> String: return ref.to_upper();
 static func _string_arr(ref:String,idx:int)-> String: return ref[idx];
+static func _string_arr_a(ref:String,idx:int, value:String): ref[idx] = value;
 #endregion
 #region Vector2
 static var vector2_methods : Dictionary[String,Callable] = {
 	"[]":_vec2_arr,
+	"[]=":_vec2_arr_a,
 };
 static func _vec2_arr (ref:Vector2,idx:int)-> float: return ref[idx];
+static func _vec2_arr_a (ref:Vector2,idx:int,val:float): ref[idx] = val;
 #endregion
 #region Vector2i
 static var vector2i_methods : Dictionary[String,Callable] = {
 	"[]":_vec2i_arr,
+	"[]=":_vec2i_arr_a,
 };
 static func _vec2i_arr (ref:Vector2i,idx:int)-> int: return ref[idx];
+static func _vec2i_arr_a (ref:Vector2i,idx:int,val:int): ref[idx] = val;
 #endregion
 #region Vector3
 static var vector3_methods : Dictionary[String,Callable] = {
 	"[]":_vec3_arr,
+	"[]=":_vec3_arr_a,
 };
 static func _vec3_arr (ref:Vector3,idx:int)-> float: return ref[idx];
+static func _vec3_arr_a (ref:Vector3,idx:int,val:float): ref[idx] = val;
 #endregion
 #region Vector3i
 static var vector3i_methods : Dictionary[String,Callable] = {
 	"[]":_vec3i_arr,
+	"[]=":_vec3i_arr_a,
 };
 static func _vec3i_arr (ref:Vector3i,idx:int)-> int: return ref[idx];
+static func _vec3i_arr_a (ref:Vector3i,idx:int,val:int): ref[idx] = val;
 #endregion
 #region Vector4
 static var vector4_methods : Dictionary[String,Callable] = {
 	"[]":_vec4_arr,
+	"[]=":_vec4_arr_a,
 };
 static func _vec4_arr (ref:Vector4,idx:int)-> float: return ref[idx];
+static func _vec4_arr_a (ref:Vector4,idx:int,val:float): ref[idx] = val;
 #endregion
 #region Vector4i
 static var vector4i_methods : Dictionary[String,Callable] = {
 	"[]":_vec4i_arr,
+	"[]=":_vec4i_arr_a,
 };
 static func _vec4i_arr (ref:Vector4i,idx:int)-> int: return ref[idx];
+static func _vec4i_arr_a (ref:Vector4i,idx:int,val:int): ref[idx] = val;
 #endregion
 #region Color
 static var color_methods : Dictionary[String,Callable] = {
 	"[]":_color_arr,
+	"[]=":_color_arr_a,
 };
 static func _color_arr (ref:Color,idx:int)-> float: return ref[idx];
+static func _color_arr_a (ref:Color,idx:int,val:float): ref[idx] = val;
 #endregion
 #region Callable
 static var callable_methods : Dictionary[String,Callable] = {
@@ -193,65 +209,90 @@ static func _unbound(ref:Callable,argcount:int) -> Callable: return ref.unbind(a
 #region Array
 static var array_methods : Dictionary[String,Callable] = {
 	"[]":_array_arr,
+	"[]=":_array_arr_a,
 };
 static func _array_arr (ref:Array,idx:int)-> Variant: return ref.get(idx);
+static func _array_arr_a (ref:Array,idx:int,val:Variant): ref[idx] = val;
 #endregion
 #region Dictionary
 static var dict_methods : Dictionary[String,Callable] = {
 	"[]":_dict_arr,
+	"[]=":_dict_arr_a,
 };
 static func _dict_arr (ref:Dictionary,idx:Variant)-> Variant: return ref.get(idx);
+static func _dict_arr_a (ref:Dictionary,idx:Variant,val:Variant): ref[idx] = val;
 #endregion
 #region PackedArrays
 static var byte_arr_methods : Dictionary[String,Callable] = {
 	"[]":_pbyte_arr,
+	"[]=":_pbyte_arr_a,
 };
 static func _pbyte_arr (ref:PackedByteArray,idx:int)-> int: return ref.get(idx);
+static func _pbyte_arr_a (ref:PackedByteArray,idx:int,val:int): ref.set(idx,val);
 
 static var int32_arr_methods : Dictionary[String,Callable] = {
 	"[]":_pint32_arr,
+	"[]=":_pint32_arr_a,
 };
 static func _pint32_arr (ref:PackedInt32Array,idx:int)-> int: return ref.get(idx);
+static func _pint32_arr_a (ref:PackedInt32Array,idx:int,val:int): ref.set(idx,val);
 
 static var int64_arr_methods : Dictionary[String,Callable] = {
 	"[]":_pint64_arr,
+	"[]=":_pint64_arr_a,
 };
 static func _pint64_arr (ref:PackedInt64Array,idx:int)-> int: return ref.get(idx);
+static func _pint64_arr_a (ref:PackedInt64Array,idx:int,val:int): ref.set(idx,val);
 
 static var float32_arr_methods : Dictionary[String,Callable] = {
 	"[]":_pfloat32_arr,
+	"[]=":_pfloat32_arr_a,
 };
 static func _pfloat32_arr (ref:PackedFloat32Array,idx:int)-> float: return ref.get(idx);
+static func _pfloat32_arr_a (ref:PackedFloat32Array,idx:int,val:float): ref.set(idx,val);
 
 static var float64_arr_methods : Dictionary[String,Callable] = {
 	"[]":_pfloat64_arr,
+	"[]=":_pfloat64_arr_a,
 };
 static func _pfloat64_arr (ref:PackedFloat64Array,idx:int)-> float: return ref.get(idx);
+static func _pfloat64_arr_a (ref:PackedFloat64Array,idx:int,val:float): ref.set(idx,val);
 
 static var string_arr_methods : Dictionary[String,Callable] = {
 	"[]":_pstring_arr,
+	"[]=":_pstring_arr_a,
 };
 static func _pstring_arr (ref:PackedStringArray,idx:int)-> String: return ref.get(idx);
+static func _pstring_arr_a (ref:PackedStringArray,idx:int,val:String): ref.set(idx,val);
 
 static var vector2_arr_methods : Dictionary[String,Callable] = {
 	"[]":_pv2_arr,
+	"[]=":_pv2_arr_a,
 };
 static func _pv2_arr (ref:PackedVector2Array,idx:int)-> Vector2: return ref.get(idx);
+static func _pv2_arr_a (ref:PackedVector2Array,idx:int,val:Vector2): ref.set(idx,val);
 
 static var vector3_arr_methods : Dictionary[String,Callable] = {
 	"[]":_pv3_arr,
+	"[]=":_pv3_arr_a,
 };
 static func _pv3_arr (ref:PackedVector3Array,idx:int)-> Vector3: return ref.get(idx);
+static func _pv3_arr_a (ref:PackedVector3Array,idx:int,val:Vector3): ref.set(idx,val);
 
 static var color_arr_methods : Dictionary[String,Callable] = {
 	"[]":_pcolor_arr,
+	"[]=":_pcolor_arr_a,
 };
 static func _pcolor_arr (ref:PackedColorArray,idx:int)-> Color: return ref.get(idx);
+static func _pcolor_arr_a (ref:PackedColorArray,idx:int,val:Color): ref.set(idx,val);
+
 
 static var vector4_arr_methods : Dictionary[String,Callable] = {
 	"[]":_pv4_arr,
+	"[]=":_pv4_arr_a,
 };
 static func _pv4_arr (ref:PackedVector4Array,idx:int)-> Vector4: return ref.get(idx);
+static func _pv4_arr_a (ref:PackedVector4Array,idx:int,val:Vector4): ref.set(idx,val);
 #endregion
 
 static func construct(type:String) -> Callable:

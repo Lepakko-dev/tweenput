@@ -2,8 +2,6 @@ extends Node
 class_name TweenputParser
 ## Parses a text following the Tweenput grammar and turns it into an executable AST
 
-# TODO Maybe a way to see each step of the parsing?
-
 #region Grammar
 # Most lookarounds are there to avoid conflict with our language collapser or grammar rules.
 const STRING =	r'"(?<val>(?:[^"\n]|(?:\\"))*)"'
@@ -359,23 +357,21 @@ class LArrayAccess extends LVar: # var[index]
 		var idx = _idx.value();
 		var container:Variant;
 		var method : Callable;
-		var method_name := _node.node_name;
+		var container_name := _node.node_name;
 		if ref_ctx: # Container is member of some object
 			if ref_ctx is Object:
-				if _node is LIdentifier: container = ref_ctx.get(method_name);
+				if _node is LIdentifier: container = ref_ctx.get(container_name);
 				else: container = null;
 			else: # Need to manually reflect
-				container = TweenputInstructions.reflect(ref_ctx,method_name).call();
-			if not container:
-				pass
+				container = TweenputInstructions.reflect(ref_ctx,container_name).call();
 		else: # Container is a true variable (managed by the parser)
-			container = _parser.variables.get(method_name);
+			container = _parser.variables.get(container_name);
 		
 		method = TweenputInstructions.reflect(container,"[]");
 		if method.is_valid():
 			return method.call(container,idx);
 		else:
-			_parser.error_out.error("Variable '%s' can't use the [] operator."%method_name);
+			_parser.error_out.error("Variable '%s' can't use the [] operator."%container_name);
 			return null;
 
 @abstract class LUnary extends LVar:
