@@ -4,12 +4,14 @@ class_name TimeWindow
 ## It's not advised to use them for animations manually, use its manager instead.
 
 
-const CORRECT   := 1;
-const IGNORED   := 0;
-const TOO_LATE  := -1;
-const TOO_EARLY := -2;
-const REJECTED := -3;
-const OUTSIDE   := -4;
+enum RESULT{
+	CORRECT=1,
+	IGNORED=0,
+	TOO_LATE=-1,
+	TOO_EARLY=-2,
+	REJECTED=-3,
+	OUTSIDE=-4
+};
 
 ## Absolute position in time (in seconds) of the center of the window.
 var center : float;
@@ -27,22 +29,19 @@ var mod_r : float;
 var mod_pre : float; 
 var mod_post : float;
 
-## The list of input names the window will consider.
+## The list of input names the window will consider as correct.
 var accepted_inputs : Array[String];
-## The list og input names the window will count as invalid. 
-## If the input neither accepted nor rejected, it will be ignored.
+## The list of input names the window will count as invalid. 
+## If the input is neither accepted nor rejected, it will be ignored.
 var rejected_inputs : Array[String];
-## If true, will reject all inputs that are not accepted (no input will be ignored).
-var reject_any : bool;
 
 
-func _init(c:float,r:float,pre:float,post:float,accepted:Array[String],rejected:Array[String]=[],reject:bool=false):
+func _init(c:float,r:float,pre:float,post:float,accepted:Array[String],rejected:Array[String]=[]):
 	center =c;
 	radius = absf(r);
 	pre_window = minf(pre,0.);
 	post_window = maxf(post,0.);
 	accepted_inputs = accepted; 
-	reject_any = reject;
 	rejected_inputs = rejected;
 
 	mod_r = radius;
@@ -53,25 +52,26 @@ func _init(c:float,r:float,pre:float,post:float,accepted:Array[String],rejected:
 ## Will return any of the status constants of the class.
 ## ([constant TimeWindow.CORRECT], [constant TimeWindow.TOO_EARLY], [constant TimeWindow.TOO_LATE], 
 ## [constant TimeWindow.OUTSIDE], [constant TimeWindow.IGNORED], [constant TimeWindow.REJECTED])
-func check_input(time:float, input:String) -> int:
+func check_input(time:float) -> int:
+	if time < (center + mod_pre): return RESULT.OUTSIDE;
+	if time > (center + mod_post): return RESULT.OUTSIDE;
 	
-	if time < (center + mod_pre): return OUTSIDE;
-	if time > (center + mod_post): return OUTSIDE;
+	for input_action in accepted_inputs:
+		if Input.is_action_just_pressed(input_action):
+			if time < (center - mod_r): return RESULT.TOO_EARLY;
+			if time > (center + mod_r): return RESULT.TOO_LATE;
+			return RESULT.CORRECT;
 	
-	if not accepted_inputs.has(input):
-		if rejected_inputs.has(input) or reject_any:
-			return REJECTED;
-		else:
-			return IGNORED;
-	
-	if time < (center - mod_r): return TOO_EARLY;
-	if time > (center + mod_r): return TOO_LATE;
+	for input_action in rejected_inputs:
+		if Input.is_action_just_pressed(input_action):
+			return RESULT.REJECTED;
+	return RESULT.IGNORED;
 
-	return CORRECT;
-
-func is_lost(time:float):
+func is_lost(time:float) -> bool:
 	return time > (center + mod_post);
 
+func is_early(time:float) -> bool:
+	return time < (center + mod_pre);
 
 ## Will adjust both TimeWindows if they are colliding in any way
 func adjust_with(o:TimeWindow) -> void:

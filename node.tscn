@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://bqlxodq8jt0vb" path="res://tweenput_test.gd" id="1_sy5k4"]
 [ext_resource type="Script" uid="uid://bsihlb1wnkfjg" path="res://Tweenput/tweenterpreter.gd" id="2_j2q8x"]
-[ext_resource type="Script" uid="uid://co5sepgqjdyyo" path="res://Tweenput/TweenputParser.gd" id="3_112p8"]
+[ext_resource type="Script" uid="uid://co5sepgqjdyyo" path="res://Tweenput/tweenput_parser.gd" id="3_112p8"]
 [ext_resource type="Texture2D" uid="uid://2gjjcw6bd5bg" path="res://icon.svg" id="4_e2u21"]
 
 [node name="Node" type="Node"]
@@ -14,17 +14,34 @@ anchor_right = 0.5
 anchor_bottom = 1.0
 offset_bottom = -50.0
 grow_vertical = 2
-text = "set arr1,[]
-set arr2,[1,2,3,\"text\"]
-set arr1, arr2
-set a, arr1[0]
-set b, arr1[1]
-set c, arr1[2]
-set d, arr1[3]
+text = "SET target.global_scale, Vector2(5,0.25)
+SET target.self_modulate, Color(1,1,1,1)
+SET completed, 0
+SET timer, 5
+bar_timer
+LINK \"subroutine\", \"wait_input\", 1
+EMIT \"subroutine\"
+WAIT bar_timer
+JMP \"ok\", completed
+WAIT \"fail\"
+END
+ok:
+WAIT \"success\"
+END
 
-set arr3, [9]
-set arr3[0],\"A\"
-set arr1, arr3"
+wait_input:
+JMP \"end\", list.size() <= 0
+SET action, list.pop_front()
+WINPUT action
+JMP \"wait_input\", 1
+end:
+SET completed, 1
+STOP bar_timer
+END
+
+bar_timer{ PROPERTY target, \"global_scale\", Vector2(0,0.25), timer }
+success{ property target, \"self_modulate\", Color(0.15,1,0.15,1), 0.15 }
+fail{ property target, \"self_modulate\", Color(0,0,0,0), 0.15 }"
 
 [node name="TOut" type="TextEdit" parent="."]
 anchors_preset = -1
@@ -68,7 +85,7 @@ metadata/_custom_type_script = "uid://bsihlb1wnkfjg"
 [node name="TweenputParser" type="Node" parent="Tweenterpreter"]
 script = ExtResource("3_112p8")
 instructions = Dictionary[String, Callable]({
-"ANIMATE": Callable(),
+"ANIM": Callable(),
 "CALL": Callable(),
 "EMIT": Callable(),
 "END": Callable(),
@@ -77,14 +94,16 @@ instructions = Dictionary[String, Callable]({
 "QTE": Callable(),
 "RET": Callable(),
 "SET": Callable(),
+"STOP": Callable(),
 "SWAP": Callable(),
 "UNLINK": Callable(),
 "WAIT": Callable(),
-"WANIMATE": Callable(),
+"WANIM": Callable(),
+"WINPUT": Callable(),
 "WQTE": Callable()
 })
 metadata/_custom_type_script = "uid://co5sepgqjdyyo"
 
 [node name="Target" type="Sprite2D" parent="."]
-position = Vector2(1190, 672)
+position = Vector2(870, 303)
 texture = ExtResource("4_e2u21")

@@ -262,7 +262,7 @@ class LIdentifier extends LVar:
 		node_name = name;
 		_parser = parser;
 	func value() -> Variant:
-		if ref_ctx:
+		if ref_ctx != null:
 			if ref_ctx is Object:
 				return ref_ctx.get(node_name);
 			else:
@@ -292,7 +292,7 @@ class LDeReference extends LBinOp: # '.' operator
 	## Returns the recursively de-referenced value of the operation.
 	func value() -> Variant:
 		var aux : Variant;
-		if ref_ctx: aux = ref_ctx;
+		if ref_ctx != null: aux = ref_ctx;
 		else: aux = a.value();
 		
 		if b is LVar:
@@ -315,10 +315,10 @@ class LMethodCall extends LVar: # Call to godot methods "method(params)".
 		if not _node:
 			parser.error_out.error("Operator [] is trying to access an unknown node (%s)."%id);
 			return;
-		_cached_instr = TweenputInstructions.construct(_node.node_name);
+		_cached_instr = TweenputHelper.construct(_node.node_name);
 	func value() -> Variant:
 		var method_name := _node.node_name;
-		if ref_ctx: # Method from an object
+		if ref_ctx != null: # Method from an object
 			if ref_ctx is Object: # Can use reflection
 				if not ref_ctx.has_method(method_name):
 					_parser.error_out.error("Invalid method '%s' of object '%s'"%[method_name,ref_ctx]);
@@ -327,7 +327,7 @@ class LMethodCall extends LVar: # Call to godot methods "method(params)".
 				for p in _params: updated_params.append(p.value());
 				return ref_ctx.call(method_name,updated_params);
 			else: # Another type of variant (Manual Reflection)
-				var method := TweenputInstructions.reflect(ref_ctx,method_name);
+				var method := TweenputHelper.reflect(ref_ctx,method_name);
 				if method.is_valid():
 					var updated_params : Array;
 					for p in _params: 
@@ -358,16 +358,16 @@ class LArrayAccess extends LVar: # var[index]
 		var container:Variant;
 		var method : Callable;
 		var container_name := _node.node_name;
-		if ref_ctx: # Container is member of some object
+		if ref_ctx != null: # Container is member of some object
 			if ref_ctx is Object:
 				if _node is LIdentifier: container = ref_ctx.get(container_name);
 				else: container = null;
 			else: # Need to manually reflect
-				container = TweenputInstructions.reflect(ref_ctx,container_name).call();
+				container = TweenputHelper.reflect(ref_ctx,container_name).call();
 		else: # Container is a true variable (managed by the parser)
 			container = _parser.variables.get(container_name);
 		
-		method = TweenputInstructions.reflect(container,"[]");
+		method = TweenputHelper.reflect(container,"[]");
 		if method.is_valid():
 			return method.call(container,idx);
 		else:
@@ -433,8 +433,9 @@ func _init():
 
 func parse(text:String) -> String:
 	if instructions.is_empty(): 
-		push_warning("Tweenput Parser is being used with no instruction set. Defaulting to base instructions");;
-		instructions = TweenputInstructions.instructions;
+		push_error("""Tweenput Parser is being used with no instruction set. 
+		Use the parser with a Tweenterpreter or your own implementation instead.""");
+		return "";
 	
 	error_out.clear_label();
 	root_node = null;
@@ -582,11 +583,8 @@ func _collapse_identifiers(text:String) -> String:
 	while identifier:
 		var id_name := identifier.get_string();
 		var key := "";
-		if id_name.to_upper() in instructions:
-			error_out.error("Bad variable name. Variables cannot have the same name as instructions (%s)"%id_name);
-		else:
-			key = _make_node_id();
-			_collapse_map[key] = LIdentifier.new(id_name,self);
+		key = _make_node_id();
+		_collapse_map[key] = LIdentifier.new(id_name,self);
 		var idx := identifier.get_start();
 		text = text.erase(idx,id_name.length()).insert(idx,key);
 		identifier = _rid.search(text);
@@ -610,7 +608,7 @@ func _collapse_recursion(text:String) -> String:
 			if c == "(":
 				var key := _make_node_id();
 				_collapse_map[key] = LMethodCall.new(id_name,nodes,self);
-				text = text.erase(res.z,id_name.length()+res.y+2).insert(res.z,key);
+				text = text.erase(res.z,id_name.length()+res.y).insert(res.z,key);
 			else:
 				if ids.size() != 1:
 					error_out.error("Operator [] must have exactly one parameter (%s)"%sub_str);

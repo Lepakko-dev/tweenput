@@ -4,13 +4,17 @@ class_name TimeWindowController
 class Channel:
 	## Sorted lists of TimeWindows.
 	var tw_list : Array[TimeWindow];
-	## Index of the last valid TimeWindow (TWs behind the time of the last check are invalidated).
+	## Index of the last valid TW (TWs behind this one won't be check anymore).
 	var last_valid :int;
-	## Stores the result of every TimeWindow of the [variable Channel.tw_list]
+	## Stores the result of every TimeWindow of the [variable Channel.tw_list].
 	var results_list : Array[int];
-	
+	## Reach of the last TimeWindow in this channel.
 	var channel_end : float;
 
+	## Emitted when at least one TimeWindow has been invalidated (has settled with a result)
+	signal processed;
+
+	## Inserts the given TimeWindow in a list ordered by their center's time.
 	func add_tw(tw:TimeWindow):
 		var upper_limit := tw.center + tw.post_window;
 		var inserted := false;
@@ -20,13 +24,15 @@ class Channel:
 				tw.adjust_with(o);
 				if i > 0: tw.adjust_with(tw_list[i-1]);
 				tw_list.insert(i,tw);
+				results_list.insert(i,TimeWindow.RESULT.IGNORED);
 				inserted = true;
 				break;
 		if not inserted:
-			tw.adjust_with(tw_list.back());
+			if tw_list.size() > 0:
+				tw.adjust_with(tw_list.back());
 			tw_list.append(tw);
+			results_list.append(TimeWindow.RESULT.IGNORED);
 			channel_end = upper_limit;
-		results_list.resize(tw_list.size()); # New default values are TimeWindow.IGNORED (0)
 	
 	func clear_list():
 		tw_list.clear();
@@ -37,15 +43,29 @@ class Channel:
 	func reset_time():
 		last_valid = 0;
 		for i in results_list.size():
-			results_list[i] = TimeWindow.IGNORED;
+			results_list[i] = TimeWindow.RESULT.IGNORED;
 	
-	func check_input(time:float, input:String):
+	## Tries to get the result of every valid TW until the given timestamp. Time cannot recede.
+	## If you want to check a previous time, call [method Channel.reset_time] previously.
+	func check_input(time:float):
+		var did_process := false;
 		for i in range(last_valid,tw_list.size()):
 			var tw := tw_list[i];
-			if not tw.is_lost(time):
-				results_list[i] = tw.check_input(time,input);
-				last_valid = i;
+			if tw.is_early(time): break;
+
+			var res := tw.check_input(time);
+			results_list[i] = res;
+			if res == TimeWindow.RESULT.IGNORED: # Must listen again next check.
 				break;
+			did_process = true;
+			last_valid = i;
+			if res != TimeWindow.RESULT.OUTSIDE: # Consumed (correct/rejected/too_xxxx)
+				break;
+		if did_process: processed.emit();
+	
+	func get_last_processed_value() -> int:
+		if last_valid < 0: return TimeWindow.RESULT.IGNORED;
+		return results_list[last_valid];
 
 var _channels : Dictionary[int,Channel];
 
@@ -65,6 +85,6 @@ func get_channel(idx:int) -> Channel:
 
 
 ## Checks input against the corresponding TWs in each channel
-func check_input(time:float, input:String):
+func check_input(time:float):
 	for k in _channels:
-		_channels[k].check_input(time,input);
+		_channels[k].check_input(time);

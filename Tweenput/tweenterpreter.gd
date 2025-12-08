@@ -4,7 +4,10 @@ class_name Tweenterpreter
 ## Handles and run Tweenput code
 
 var parser: TweenputParser;
+
 var twc : TimeWindowController;
+var processing_tw : bool = false;
+var tw_start := 0;
 
 ## Flags to control the flow of execution of the interpreter
 enum RUN_FLAG {JUMPING=1, CALLING=2, ENDING=4};
@@ -37,6 +40,9 @@ class SignalLinkList:
 		var idx := _labels.find(label);
 		_labels.remove_at(idx);
 		_callables.remove_at(idx);
+	func clear():
+		_labels.clear();
+		_callables.clear();
 	func get_callable(label:String) -> Callable:
 		var idx := _labels.find(label);
 		if idx < 0: return Callable();
@@ -48,6 +54,17 @@ var id_pool : Array[int] = [];
 ## Max number of coroutines being executed at a time (excluding the main interpreter)
 var max_active_links := 16;
 signal coroutine_finished;
+
+# Var related to Non-active input waiting (for WINPUT instruction)
+## Stores input actions that need to be listened on press.
+var waiting_actions_press : Array[String];
+## Stores input actions that need to be listened on release.
+var waiting_actions_release : Array[String];
+## Emitted when an input (this interpreter was waiting for) has been pressed or released.
+signal input_found;
+
+# Others
+var current_tweens_waited : Dictionary[int,Tween];
 
 func _init() -> void:
 	twc = TimeWindowController.new();
@@ -68,6 +85,32 @@ func _get_configuration_warnings() -> PackedStringArray:
 	if not _has_parser: warnings.append("Tweenterpreter must have a TweenputParser node as a child");
 	return warnings;
 
+func _unhandled_input(event: InputEvent) -> void:
+	var i : int = 0;
+	while i < waiting_actions_press.size():
+		var action := waiting_actions_press[i];
+		if event.is_action_pressed(action):
+			waiting_actions_press.erase(action);
+			input_found.emit();
+		else:
+			i += 1;
+	i = 0;
+	while i < waiting_actions_release.size():
+		var action := waiting_actions_release[i];
+		if event.is_action_released(action):
+			waiting_actions_release.erase(action);
+			input_found.emit();
+		else:
+			i += 1;
+
+
+func _process(_delta:float) -> void:
+	if processing_tw:
+		if tw_start == 0: tw_start = Time.get_ticks_usec();
+		var elapsed := float(Time.get_ticks_usec() - tw_start)/1000000.0;
+		twc.check_input(elapsed);
+
+
 func process_code(text:String) -> String:
 	if not parser: 
 		push_error("Tweenterpreter doesn't have a parser to process the given text.");
@@ -80,9 +123,12 @@ func run():
 		push_error("Tweenterpreter doesn't have a parser to get the AST from.");
 		return;
 	
+	print("--- Starting ---");
 	for s in self_user_signals: remove_user_signal(s);
 	self_user_signals.clear();
 	
+	set_tw_process(true);
+
 	linked_signals.clear();
 	id_pool.clear();
 	for i in max_active_links:
@@ -94,9 +140,17 @@ func run():
 	var node := parser.root_node;
 	var ctx := ctx_list[max_active_links];
 	while node: node = await _step(node,ctx);
+	print("--- Stoping ---");
+	
+	# Warn all coroutines and wait them to finish their execution.
+	for c in ctx_list:
+		c.flags |= RUN_FLAG.ENDING;
+	_cleaning_execution();
 	while id_pool.size() < max_active_links:
 		print("...")
 		await coroutine_finished;
+	set_tw_process(false);
+	print("--- Finished ---");
 
 ## Starts the concurrent execution of the Tweenput code from a specific label.
 func _run_async(label:String):
@@ -152,10 +206,12 @@ var instructions : Dictionary[String,Callable] = {
 	"UNLINK":UNLINK,
 	"END":END,
 	# Other Animation Related
-	"QTE":Callable(),
-	"WQTE":Callable(),
-	"ANIMATE":Callable(),
-	"WANIMATE":Callable(),
+	"QTE":QTE,
+	"WQTE":WQTE,
+	"ANIM":Callable(),
+	"WANIM":Callable(),
+	"STOP":STOP,
+	"WINPUT":WINPUT,
 };
 
 func SET(id:TweenputParser.LangNode,expr:TweenputParser.LangNode):
@@ -193,29 +249,29 @@ func SET(id:TweenputParser.LangNode,expr:TweenputParser.LangNode):
 				if leaf._node is TweenputParser.LIdentifier:
 					container = ref.get(cont_name);
 			else: # Need to manually reflect
-				container = TweenputInstructions.reflect(ref,cont_name).call();
+				container = TweenputHelper.reflect(ref,cont_name).call();
 			if not container:
-				push_error("Couldn't retrieve container '%s' for operator []."%cont_name);
+				push_error("Tweenput: SET -> No container '%s' found for operator []."%cont_name);
 				return;
-			var method := TweenputInstructions.reflect(container,"[]=");
+			var method := TweenputHelper.reflect(container,"[]=");
 			if method.is_valid():
 				method.call(container,idx,value);
 			else:
-				push_error("Variable '%s' can't use the [] operator."%cont_name);
+				push_error("Tweenput: SET -> Variable '%s' can't use the [] operator."%cont_name);
 				return;
 			var_name = cont_name+"[%s]"%idx;
 	else: # No de-referencing
 		if leaf is TweenputParser.LIdentifier:
-			parser.variables.set(leaf.node_name,value);
+			parser.variables.set(var_name,value);
 		elif leaf is TweenputParser.LArrayAccess:
 			var cont_name : String = leaf._node.node_name;
 			var container : Variant = parser.variables.get(cont_name);
 			var idx : Variant = leaf._idx.value();
-			var method := TweenputInstructions.reflect(container,"[]=");
+			var method := TweenputHelper.reflect(container,"[]=");
 			if method.is_valid():
 				method.call(container,idx,value);
 			else:
-				push_error("Variable '%s' can't use the [] operator."%cont_name);
+				push_error("Tweenput: SET -> Variable '%s' can't use the [] operator."%cont_name);
 				return;
 			var_name = cont_name+"[%s]"%idx;
 
@@ -269,7 +325,9 @@ func WAIT(node:TweenputParser.LangNode):
 		elif is_tween:
 			var aux := TweenputParser.LTweenExe.new(val,parser);
 			aux.execute().call();
+			current_tweens_waited[aux.tween.get_instance_id()] = aux.tween;
 			await aux.tween.finished;
+			current_tweens_waited.erase(aux.tween.get_instance_id());
 			print("WAIT %s"%val);
 		else:
 			push_error("Tweenput: WAIT -> No internal signal or tween found with name %s."%val);
@@ -294,7 +352,9 @@ func WAIT(node:TweenputParser.LangNode):
 				push_error("Tweenput: WAIT -> Tried waiting for an infinitely looping Tween.");
 				return;
 			if not tween.is_running(): tween.play();
+			current_tweens_waited[tween.get_instance_id()] = tween;
 			await tween.finished;
+			current_tweens_waited.erase(tween.get_instance_id());
 			print("WAIT %s"%node.node_name);
 			return;
 		elif val is float:
@@ -338,7 +398,7 @@ func CALL(ctx:Context,node:TweenputParser.LangNode):
 		else:
 			push_error("Tweenput: CALL -> Label '%s' unknown."%val);
 			return;
-	elif node is TweenputParser.LVar: # Value could be String or Callable still
+	elif node is TweenputParser.LVar: # Value could be Label(String) or Callable still
 		if val is Callable:
 			val.call(); # Unawaited counterpart of 'WAIT <Callable>' instruction
 		elif val is String:
@@ -382,7 +442,7 @@ func LINK(_ctx:Context,sig:TweenputParser.LangNode,label:TweenputParser.LangNode
 	var lbl_val = label.value();
 	if lbl_val is String:
 		var sig_flags : int = CONNECT_REFERENCE_COUNTED;
-		var is_oneshot : bool = oneshot and oneshot.value() == true;
+		var is_oneshot : bool = oneshot and (oneshot.value() as bool);
 		if is_oneshot: sig_flags |= CONNECT_ONE_SHOT;
 		var callable := _run_async.bind(lbl_val);
 		var links : SignalLinkList = linked_signals.get_or_add(s.get_name(),SignalLinkList.new());
@@ -393,7 +453,7 @@ func LINK(_ctx:Context,sig:TweenputParser.LangNode,label:TweenputParser.LangNode
 		push_error("Tweenput: LINK -> 2º parameter must be String.");
 		return;
 
-func UNLINK(sig:TweenputParser.LangNode,label:TweenputParser.LangNode):
+func UNLINK(_ctx:Context, sig:TweenputParser.LangNode,label:TweenputParser.LangNode=null):
 	var sig_val = sig.value();
 	var s : Signal;
 	if sig_val is String: # Internal signal
@@ -404,8 +464,20 @@ func UNLINK(sig:TweenputParser.LangNode,label:TweenputParser.LangNode):
 		push_error("Tweenput: UNLINK -> 1º parameter must be Signal.");
 		return;
 	
-	var lbl_val = label.value();
-	if lbl_val is String:
+	if label == null: # Disconnect ALL
+		var s_name := s.get_name();
+		var links : SignalLinkList = linked_signals.get(s_name,null);
+		if links:
+			for c in links._callables:
+				if s.is_connected(c): 
+					s.disconnect(c);
+			links.clear();
+		print("UNLINK %s"%s_name);
+	else: # Disconnect the Callable of the given Label.
+		var lbl_val = label.value();
+		if lbl_val is not String:
+			push_error("Tweenput: UNLINK -> 2º parameter must be String.");
+			return;
 		var s_name := s.get_name();
 		var links : SignalLinkList = linked_signals.get(s_name,null);
 		if links:
@@ -416,9 +488,6 @@ func UNLINK(sig:TweenputParser.LangNode,label:TweenputParser.LangNode):
 			s.disconnect(c);
 			links.remove(lbl_val);
 		print("UNLINK %s , %s"%[s_name,lbl_val]);
-	else:
-		push_error("Tweenput: UNLINK -> 2º parameter must be String.");
-		return;
 
 func END(ctx:Context):
 	ctx.flags |= RUN_FLAG.ENDING;
@@ -426,13 +495,130 @@ func END(ctx:Context):
 	return;
 
 
-func QTE(_center:TweenputParser.LangNode,_radius:TweenputParser.LangNode,
-		_pre:TweenputParser.LangNode,_post:TweenputParser.LangNode,
-		_valid:TweenputParser.LangNode=null,_invalid:TweenputParser.LangNode=null,
-		_channel:TweenputParser.LangNode=null):
-	pass
+func QTE(center:TweenputParser.LangNode,radius:TweenputParser.LangNode,
+		pre:TweenputParser.LangNode,post:TweenputParser.LangNode,
+		valid:TweenputParser.LangNode,invalid:TweenputParser.LangNode,
+		channel:TweenputParser.LangNode):
+	if not center or not radius or not pre or not post or not valid or not invalid or not channel:
+		push_error("Tweenput: QTE -> Undefined variables.");
+		return;
+	
+	var v = valid.value();
+	if v is not Array:
+		push_error("Tweenput: QTE -> Parameter of accepted input must be an array.");
+		return;
+	var accepted : Array[String];
+	for action in v:
+		if action is String:
+			accepted.append(action as String);
+		else:
+			push_error("Tweenput: QTE -> Arrays must contain Strings only.");
+			return;
+	
+	var iv = invalid.value();
+	if iv is not Array:
+		push_error("Tweenput: QTE -> Parameter of rejected input must be an array.");
+		return;
+	var rejected : Array[String];
+	for action in iv:
+		if action is String:
+			rejected.append(action as String);
+		else:
+			push_error("Tweenput: QTE -> Arrays must contain Strings only.");
+			return;
+	
+	var c := center.value() as float;
+	var r := radius.value() as float;
+	var la := pre.value() as float;
+	var ra := post.value() as float;
+	var ch := channel.value() as int;
+	var tw := TimeWindow.new(c,r,la,ra,accepted,rejected);
+	twc.add_tw(tw,ch);
+	print("QTE %4.2f %4.2f %4.2f %4.2f %s %s %d"%[c,r,la,ra,accepted,rejected,ch]);
+
+func WQTE(channel:TweenputParser.LangNode):
+	if not channel: 
+		push_error("Tweenput: WQTE -> No channel selected for wait.");
+		return;
+	var channel_id = channel.value() as int;
+	if channel_id is not int:
+		push_error("Tweenput: WQTE -> Channel index must be an integer.");
+		return;
+	
+	var tw_channel := twc.get_channel(channel_id);
+	await tw_channel.processed;
+	var result := tw_channel.get_last_processed_value();
+	if result == TimeWindow.RESULT.IGNORED:
+		push_warning("Tweenput: WQTE -> Retrieved unexpected value.");
+
+	var res_dict : Dictionary = parser.variables.get_or_add("res_qte",{});
+	res_dict[channel_id]=result;
+	print("WQTE %d (%s)"%[channel_id,TimeWindow.RESULT.find_key(result)]);
+
+
+func STOP(node_t:TweenputParser.LangNode):
+	if not node_t:
+		push_error("Tweenput: STOP -> Undefined variables.");
+		return;
+	var tween = node_t.value();
+	if tween is not Tween:
+		push_error("Tweenput: STOP -> Parameter must be a tween.");
+		return;
+	var t:= (tween as Tween)
+	t.stop();
+	t.finished.emit();
+	print("STOP %s"%node_t.node_name);
+
+func WINPUT(_ctx:Context, input:TweenputParser.LangNode, release:TweenputParser.LangNode=null):
+	if not input:
+		push_error("Tweenput: WINPUT -> Undefined variable.");
+		return;
+	var input_action = input.value();
+	if input_action is not String:
+		push_error("Tweenput: WINPUT -> First parameter must be a String.");
+		return;
+	if not InputMap.has_action(input_action):
+		push_error("Tweenput: WINPUT -> Action '%s' is not registered in the InputMap."%input_action);
+		return;
+	
+	var is_release : bool = release and release.value();
+	if is_release:
+		if not waiting_actions_release.has(input_action):
+			waiting_actions_release.append(input_action);
+	else:
+		if not waiting_actions_press.has(input_action):
+			waiting_actions_press.append(input_action);
+	
+	var wait : bool = true; 
+	while wait:
+		await input_found;
+		if is_release:
+			if input_action not in waiting_actions_release:
+				wait = false;
+		else:
+			if input_action not in waiting_actions_press:
+				wait = false;
+	print("WINPUT %s %s"%[input_action,is_release]);
 
 #endregion
+
+func _cleaning_execution():
+	# Uncloging signal dependent waiting instructions
+	# WINPUT
+	waiting_actions_release.clear();
+	waiting_actions_press.clear();
+	input_found.emit();
+	# WQTE
+	for c in twc._channels:
+		twc.get_channel(c).processed.emit();
+	# WAIT (internal signals only)
+	for sig in self_user_signals.values():
+		(sig as Signal).emit();
+	# WAIT (any awaited Tween)
+	for val in current_tweens_waited.values():
+		var t := val as Tween;
+		t.stop();
+		t.finished.emit();
 
 func _get_add_signal(sig_name:String) -> Signal:
 	var s : Signal;
@@ -443,6 +629,12 @@ func _get_add_signal(sig_name:String) -> Signal:
 	else:
 		s = self_user_signals[sig_name];
 	return s;
+
+func set_tw_process(val:bool):
+	processing_tw = val;
+	if val:
+		twc.clear_channels();
+		tw_start = 0;
 
 func get_id_from_pool() -> int:
 	if id_pool.size() == 0: return -1;

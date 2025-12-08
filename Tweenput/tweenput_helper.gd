@@ -1,50 +1,5 @@
-class_name TweenputInstructions
+class_name TweenputHelper
 
-static var instructions : Dictionary[String,Callable] = {
-	"SET":SET,
-	"SWAP":SWAP,
-	# Flow of Execution Related
-	"EMIT":_dummy,
-	"WAIT":_dummy,
-	"JMP":_dummy,
-	"CALL":_dummy,
-	"RET":_dummy,
-	"LINK":_dummy,
-	"UNLINK":_dummy,
-	"END":END,
-	# Other Animation Related
-	"QTE":_dummy,
-	"WQTE":_dummy,
-	"ANIMATE":_dummy,
-	"WANIMATE":_dummy,
-};
-
-static func _dummy():
-	print("Dummy instruction executed.");
-
-static func SET(id:TweenputParser.LangNode,expr:TweenputParser.LangNode):
-	if id is not TweenputParser.LIdentifier: 
-		push_error("Tweenput: SET -> 1º param not a variable");
-		return;
-	var var_name : String = id._name;
-	var value = expr.value();
-	print("SET %s , %s"%[var_name,value]);
-
-static func SWAP(a:TweenputParser.LangNode,b:TweenputParser.LangNode):
-	if a is not TweenputParser.LIdentifier:
-		push_error("Tweenput: SET -> 1º param not a variable");
-		return;
-	if b is not TweenputParser.LIdentifier:
-		push_error("Tweenput: SET -> 2º param not a variable");
-		return;
-	var a_name : String = a._name;
-	var b_name : String = b._name;
-	print("SWAP %s , %s"%[a_name,b_name]);
-
-static func END():
-	print("END");
-
-#region Extras
 #region Constructors
 static func V2 (params : Array[TweenputParser.LangNode]) -> Variant:
 	if params.size() == 0: return Vector2();
@@ -87,6 +42,13 @@ static func R3 (params : Array[TweenputParser.LangNode]) -> Variant:
 	if params.size() == 2: return AABB(params[0].value(),params[1].value());
 	return null;
 
+static func C (params: Array[TweenputParser.LangNode]) -> Variant:
+	if params.size() == 0: return Color();
+	if params.size() == 1: return Color(params[0].value() as String);
+	if params.size() == 3: return Color(params[0].value(),params[1].value(),params[2].value());
+	if params.size() == 4: return Color(params[0].value(),params[1].value(),params[2].value(),params[3].value());
+	return null;
+
 static var constructors : Dictionary[String,Callable] = {
 	"Vector2": V2,
 	"Vector2i": V2i,
@@ -95,6 +57,7 @@ static var constructors : Dictionary[String,Callable] = {
 	"Vector3": V3,
 	"Vector3i": V3i,
 	"AABB":R3,
+	"Color":C,
 	# Implement more here if necessary.
 };
 #endregion
@@ -208,9 +171,41 @@ static func _unbound(ref:Callable,argcount:int) -> Callable: return ref.unbind(a
 #endregion
 #region Array
 static var array_methods : Dictionary[String,Callable] = {
+	"append":_array_append,
+	"back":_array_back,
+	"clear":_array_clear,
+	"erase":_array_erase,
+	"find":_array_find,
+	"font":_array_font,
+	"has":_array_has,
+	"insert":_array_insert,
+	"is_empty":_array_is_empty,
+	"pick_random":_array_pick_random,
+	"pop_back":_array_pop_back,
+	"pop_front":_array_pop_front,
+	"remove_at":_array_remove_at,
+	"resize":_array_resize,
+	"shuffle":_array_shuffle,
+	"size":_array_size,
 	"[]":_array_arr,
 	"[]=":_array_arr_a,
 };
+static func _array_append(ref:Array,val:Variant): ref.append(val);
+static func _array_back(ref:Array)-> Variant: return ref.back();
+static func _array_clear(ref:Array): ref.clear();
+static func _array_erase(ref:Array,val:Variant): ref.erase(val);
+static func _array_find(ref:Array, what:Variant,from:int=0)-> int: return ref.find(what,from);
+static func _array_font(ref:Array)-> Variant: return ref.front();
+static func _array_has(ref:Array,val:Variant)-> bool: return ref.has(val);
+static func _array_insert(ref:Array,pos:int,val:Variant)-> int: return ref.insert(pos,val);
+static func _array_is_empty(ref:Array)-> bool: return ref.is_empty();
+static func _array_pick_random(ref:Array)-> Variant: return ref.pick_random();
+static func _array_pop_back(ref:Array)-> Variant: return ref.pop_back();
+static func _array_pop_front(ref:Array)-> Variant: return ref.pop_front();
+static func _array_remove_at(ref:Array,pos:int): ref.remove_at(pos);
+static func _array_resize(ref:Array, size:int)-> int: return ref.resize(size);
+static func _array_shuffle(ref:Array): ref.shuffle();
+static func _array_size(ref:Array)-> int: return ref.size();
 static func _array_arr (ref:Array,idx:int)-> Variant: return ref.get(idx);
 static func _array_arr_a (ref:Array,idx:int,val:Variant): ref[idx] = val;
 #endregion
@@ -313,4 +308,3 @@ static var variants : Array[Dictionary] = [ # All 38 types of Variant ordered by
 	int32_arr_methods,int64_arr_methods,float32_arr_methods,float64_arr_methods,string_arr_methods, 
 	vector2_arr_methods,vector3_arr_methods,color_arr_methods,vector4_arr_methods
 ]
-#endregion
