@@ -3,12 +3,15 @@ class_name TweenputParser
 ## Parses a text following the Tweenput grammar and turns it into an executable AST
 
 #region Grammar
+# Commented RegEx are unused but technically part of the formal grammar.
+
 # Most lookarounds are there to avoid conflict with our language collapser or grammar rules.
 const STRING =	r'"(?<val>(?:[^"\n]|(?:\\"))*)"'
+# Any form of number
 const CONST =	r"(?<![A-Za-z_#]{1,9}\d{0,9})(?:(?<bin>0b(?:[0-1])+)|(?<hex>0x(?:\d|[a-f])+)|(?<dec>\d+(?:\.\d*)?))"
 const ID =		r"(?<obj>[a-zA-Z_]\w*)"
 
-const MEMBR_ACCESS_EXPR = r"(?<parent>#\d+)\.(?<member>#\d+)"; # Operands must be ID.
+const MEMBR_ACCESS_EXPR = r"(?<parent>#\d+)\.(?<member>#\d+)";
 const UNARY_EXPR =	r"(?<=-|\D|^)"+SEP+r"(?<op>\+|-|~|!)+"+SEP+r"(?<v1>#\d+)"
 const MUL_EXPR =	r"(?<v1>#\d+)"+SEP+r"(?<op>\*|\/)"+SEP+r"(?<v2>#\d+)"
 const ADD_EXPR =	r"(?<v1>#\d+)"+SEP+r"(?<op>\+|-)"+SEP+r"(?<v2>#\d+)"
@@ -27,17 +30,17 @@ const LOGIC_OR_EXPR =	r"(?<v1>#\d+)"+SEP+r"\|\|"+SEP+r"(?<v2>#\d+)"
 const INSTR =		LOOKBREAK+r"(?<instr>[a-zA-Z_]\w*)"+SEP+r"(?:"+H+r"(?<params>[^\n;:{]+))?(?:[\n;]+|$)"
 const LABEL =		LOOKBREAK+r"(?<label>[a-zA-Z_]\w*):(?:[^\S]*)(?<node>#\d+)"
 const TWEEN_DEF =	LOOKBREAK+r"("+ID+r"[^\S\n]*\{(?<list>(?:[\n;]*\s*(?:[^\n;}]+)?)*)?\})";
-const TWEEN_EXE =	LOOKBREAK+r"(?<tween>[a-zA-Z_]\w*)"
+#const TWEEN_EXE =	LOOKBREAK+r"(?<tween>[a-zA-Z_]\w*)"
 
-const LINE =		"("+INSTR+"|"+TWEEN_DEF+"|"+LABEL+"|"+TWEEN_EXE+")"
-const S = 			"^"+LINE+"("+BREAK+LINE+")*"+BREAK+"?$"
+#const LINE =		"("+INSTR+"|"+TWEEN_DEF+"|"+LABEL+"|"+TWEEN_EXE+")"
+#const S = 			"^"+LINE+"("+BREAK+LINE+")*"+BREAK+"?$"
 
 const H =		r"(?:[^\S\n])"
 const SEP =		r"(?:[^\S\n]*)"
-const BREAK =	r"(?:(?:\n|;|^)\s*)"
+#const BREAK =	r"(?:(?:\n|;|^)\s*)"
 const LOOKBREAK = r"(?<=(?:\n|;|^)\s{0,99})"
-const COMMENT = r'(?<!(\n|^)[^"]{0,99}"[^"]{0,99})#[^\n]*' # Huge lookbehind to not take comments inside string literals
-const CNODE = 	r"(?<id>#\d+)";
+# Huge lookbehind to not take comments inside string literals
+const COMMENT = r'(?<!(\n|^)[^"]{0,99}"[^"]{0,99})#[^\n]*'
 
 var _rconst := RegEx.new();
 var _rstring := RegEx.new();
@@ -61,16 +64,9 @@ var _rorl := RegEx.new();
 
 var _rinstr := RegEx.new();
 var _rtween := RegEx.new();
-var _rtexe := RegEx.new();
 var _rlabel := RegEx.new();
-var _rline := RegEx.new();
-var _rbreak := RegEx.new();
-var _rs := RegEx.new();
 
 var _rcomment = RegEx.new();
-
-var _rnode := RegEx.new();
-var _rid_aux := RegEx.new();
 
 func _compile_regex():
 	_rconst.compile(CONST);
@@ -96,26 +92,20 @@ func _compile_regex():
 	
 	_rinstr.compile(INSTR);
 	_rtween.compile(TWEEN_DEF);
-	_rtexe.compile(TWEEN_EXE);
 	_rlabel.compile(LABEL);
-	_rline.compile(LINE);
-	_rbreak.compile(BREAK);
-	_rs.compile(S);
 	
 	_rcomment.compile(COMMENT);
-	
-	_rnode.compile(CNODE);
-	_rid_aux.compile(CNODE+r"(?<op>\(|\[)");
 #endregion
 
-## Instructions valid inside a Tween definition only.
-const tween_instrunctions : Dictionary[String,String] = {
+## Exclusive instructions for Tween definition only.
+const TWEEN_INSTRUCTIONS : Dictionary[String,String] = {
 	"BIND":"bind_node",
 	"INTERVAL":"tween_interval",
 	"CALLBACK":"tween_callback",
 	"METHOD":"tween_method",
 	"PROPERTY":"tween_property",
 	"SUBTWEEN":"tween_subtween",
+	"LOOPS":"set_loops",
 	"PARALLEL":"set_parallel",
 	"EASE":"set_ease",
 	"IGNORE_TIME_SCALE":"set_ignore_time_scale",
@@ -125,15 +115,19 @@ const tween_instrunctions : Dictionary[String,String] = {
 	"TRANS":"set_trans",
 };
 
-## A list of all implemented instructions for a the represented language.
-## Set these from external sources.
+## Map of all instruction names with their implementation. Feel free to add or modify. [br]
+## Is filled automatically if the parent node is [Tweenterpreter].
 @export var instructions : Dictionary[String,Callable] = {};
 
 #region AST Classes
+## Base type of node for the AST
 @abstract class LangNode:
+	## Doesn't need to be unique.
 	var node_name : String;
+	## Will return the processed value of whatever it contains. 
 	@abstract func value() -> Variant;
 
+## Holds information of a whole instruction with parameters if any.
 class LInstr extends LangNode:
 	var next : LInstr;
 	var _params : Array[LangNode];
@@ -144,17 +138,20 @@ class LInstr extends LangNode:
 		_cached_instr = parser.instructions.get(node_name,Callable());
 		var required_param_count := _cached_instr.get_argument_count();
 		if params.size() > required_param_count:
-			parser.error_out.error("Bad argument count. Instruction %s needs %d arguments. %d were given."%
-				[name,required_param_count,params.size()]);
+			parser.logger.err("""Bad argument count. Instruction %s needs %d arguments.
+				%d were given."""%[name,required_param_count,params.size()]);
 		if _cached_instr.is_null():
-			if node_name in parser.tween_instrunctions:
-				parser.error_out.error("Tween Instructions cannot be outside a Tween definition (%s)"%name);
+			if node_name in parser.TWEEN_INSTRUCTIONS:
+				parser.logger.err("Tween Instructions cannot be outside a Tween definition (%s)"
+					%name);
 			else:
-				parser.error_out.error("Bad instruction name (%s)"%name);
+				parser.logger.err("Bad instruction name (%s)"%name);
 	func value() -> Variant:
 		return _cached_instr;
+	## Returns a callable of the instruction it represents with all parameters already set.
 	func execute() -> Callable: return _cached_instr.bindv(_params);
 
+## Instruction node exclusive to [Tween] definition.
 class LInstrTween extends LInstr:
 	# Doesn't need to use 'next' var since order is handled by LTweenDef class
 	var _m_name : String;
@@ -163,19 +160,21 @@ class LInstrTween extends LInstr:
 		node_name = name.to_upper();
 		_params = params;
 		_parser = parser;
-		_m_name = parser.tween_instrunctions.get(node_name,"");
+		_m_name = parser.TWEEN_INSTRUCTIONS.get(node_name,"");
 		if _m_name.is_empty():
-			parser.error_out.error("Bad instruction name (%s)"%name);
+			parser.logger.err("Bad instruction name (%s)"%name);
 			return;
 		elif node_name in parser.instructions:
-			parser.error_out.error("Regular Instructions cannot be inside a Tween definition (%s)"%name);
-			
+			parser.logger.err("Instruction '%s' cannot be inside a Tween definition."%name);
+	
+	## Calculates the most recent values of all parameters and executes the instruction
+	## represented into the current tween being built.
 	func execute() -> Callable:
 		if _cached_instr.get_object() != _parser.current_building_tween:
 			_cached_instr = _parser.current_building_tween.call;
 		var correct_arg_count := _parser.current_building_tween.get_method_argument_count(_m_name);
 		if correct_arg_count != _params.size():
-			_parser.error_out.error("Incorrect argument count for %s (%d) should be %d"%
+			_parser.logger.err("Incorrect argument count for %s (%d) should be %d"%
 				[node_name,_params.size(),correct_arg_count]);
 			return Callable();
 		
@@ -186,6 +185,7 @@ class LInstrTween extends LInstr:
 		res.call();
 		return res.call;
 
+# "Any double quoted string"
 class LString extends LangNode:
 	var _literal : String;
 	func _init(string:String):
@@ -193,6 +193,7 @@ class LString extends LangNode:
 	func value() -> Variant:
 		return _literal;
 
+# 1, 2.3, 0b01, 0x4f
 class LConst extends LangNode:
 	var _val : Variant;
 	func _init(number:Variant):
@@ -200,6 +201,7 @@ class LConst extends LangNode:
 	func value() -> Variant:
 		return _val;
 
+# [], ["any","Variant","type", 99, variable], [ [],[],[] ]
 class LConstArray extends LangNode:
 	var _elems : Array[LangNode];
 	func _init(elems:Array[LangNode]) -> void:
@@ -211,6 +213,7 @@ class LConstArray extends LangNode:
 				array.append(elem.value());
 		return array;
 
+## Contains the whole [Tween] definition with all instructions.
 class LTweenDef extends LangNode:
 	var _instr_list : Array[LInstrTween];
 	var _parser : TweenputParser;
@@ -220,13 +223,24 @@ class LTweenDef extends LangNode:
 		_parser = parser;
 	func value() -> Variant:
 		return node_name;
+	
+	## Builds the whole [Tween] with updated parameters
 	func execute() -> void:
+		# Build subtweens first (if any)
+		for instr in _instr_list:
+			var instr_name : String = instr.node_name;
+			if instr_name == "SUBTWEEN":
+				var sub_t_name := (instr._params.get(0) as LangNode).node_name;
+				if sub_t_name in _parser._tween_map:
+					_parser._tween_map[sub_t_name].execute();
+
 		_parser.current_building_tween = _parser.create_tween();
 		for instr in _instr_list:
 			instr.execute();
 		_parser.variables[node_name] = _parser.current_building_tween;
 		_parser.current_building_tween = null;
 
+## Represents a single [Tween] execution.
 class LTweenExe extends LInstr:
 	var _parser : TweenputParser;
 	var tween : Tween;
@@ -237,6 +251,9 @@ class LTweenExe extends LInstr:
 		if builder: _cached_instr = builder.execute;
 	func value() -> Variant:
 		return node_name;
+	
+	## Returns the play method of the represented tween.
+	## Also builds the tween if it has a definition.
 	func execute() -> Callable:
 		if _cached_instr: # Has a tween definition to update the tween.
 			_cached_instr.call();
@@ -244,7 +261,7 @@ class LTweenExe extends LInstr:
 		else: # Is a tween variable set outside of Tweenput code.
 			var aux = _parser.variables.get(node_name,null);
 			if not aux or aux is not Tween:
-				_parser.error_out.error("Variable %s is not a Tween"%node_name);
+				_parser.logger.err("Variable %s is not a Tween"%node_name);
 				return Callable();
 			tween = aux as Tween;
 		tween.stop();
@@ -256,6 +273,7 @@ class LTweenExe extends LInstr:
 	## Stores the parent reference (necessary due to de-reference working in opposite order)
 	var ref_ctx : Variant;
 
+## Represents a variable (or a class member)
 class LIdentifier extends LVar:
 	var _parser : TweenputParser;
 	func _init(name:Variant, parser : TweenputParser):
@@ -266,7 +284,7 @@ class LIdentifier extends LVar:
 			if ref_ctx is Object:
 				return ref_ctx.get(node_name);
 			else:
-				_parser.error_out.error("Variable must belong to an object of type Object.");
+				_parser.logger.err("Variable must belong to an object of type Object.");
 				return null;
 		else:
 			return _parser.variables.get(node_name);
@@ -278,15 +296,16 @@ class LIdentifier extends LVar:
 		a = left_var; 
 		b = right_var;
 
-class LDeReference extends LBinOp: # '.' operator
+## Represents the '.' operator used to access members and methods of objects.
+class LDeReference extends LBinOp:
 	var _parser: TweenputParser;
 	func _init(left_var: LangNode, right_var:LangNode, parser:TweenputParser):
 		super(left_var,right_var);
 		_parser = parser;
 		if a is not LVar:
-			parser.error_out.error("Trying to access method or variable from invalid node.")
+			parser.logger.err("Trying to access method or variable from invalid node.")
 		if b is not LVar:
-			parser.error_out.error("Trying to access an invalid method or variable node.");
+			parser.logger.err("Trying to access an invalid method or variable node.");
 		node_name = "%s.%s"%[a.node_name,b.node_name];
 	
 	## Returns the recursively de-referenced value of the operation.
@@ -299,10 +318,13 @@ class LDeReference extends LBinOp: # '.' operator
 			b.ref_ctx = aux;
 			return b.value();
 		else:
-			_parser.error_out.error("Trying to access an invalid method or variable node.");
+			_parser.logger.err("Trying to access an invalid method or variable node.");
 		return null;
 
-class LMethodCall extends LVar: # Call to godot methods "method(params)".
+## Represents a method call of any existing method of an [Object] derived class.
+## Some methods and constructors from [Variant] derived classes (that are not [Object])
+## are implemented as well.
+class LMethodCall extends LVar:
 	var _node : LVar;
 	var _params : Array[LangNode];
 	var _parser : TweenputParser;
@@ -313,7 +335,7 @@ class LMethodCall extends LVar: # Call to godot methods "method(params)".
 		_parser = parser;
 		_node = parser._collapse_map.get(id);
 		if not _node:
-			parser.error_out.error("Operator [] is trying to access an unknown node (%s)."%id);
+			parser.logger.err("Operator [] is trying to access an unknown node (%s)."%id);
 			return;
 		_cached_instr = TweenputHelper.construct(_node.node_name);
 	func value() -> Variant:
@@ -321,7 +343,7 @@ class LMethodCall extends LVar: # Call to godot methods "method(params)".
 		if ref_ctx != null: # Method from an object
 			if ref_ctx is Object: # Can use reflection
 				if not ref_ctx.has_method(method_name):
-					_parser.error_out.error("Invalid method '%s' of object '%s'"%[method_name,ref_ctx]);
+					_parser.logger.err("Invalid method '%s' of object '%s'"%[method_name,ref_ctx]);
 					return null;
 				var updated_params : Array;
 				for p in _params: updated_params.append(p.value());
@@ -335,14 +357,15 @@ class LMethodCall extends LVar: # Call to godot methods "method(params)".
 							updated_params.append(p.value());
 					return method.bindv(updated_params).call(ref_ctx);
 				else:
-					_parser.error_out.error("Invalid method or not implemented (%s)"%method_name);
+					_parser.logger.err("Invalid method or not implemented (%s)"%method_name);
 			return null;
 		else: #Standalone method (Constructors, etc)
 			if not _cached_instr.is_valid(): 
-				_parser.error_out.error("Unknown constuctor (%s)"%method_name);
+				_parser.logger.err("Unknown constuctor (%s)"%method_name);
 			return _cached_instr.call(_params);
 
-class LArrayAccess extends LVar: # var[index]
+# array[index], dict[key]
+class LArrayAccess extends LVar:
 	var _node : LVar;
 	var _idx : LangNode;
 	var _parser : TweenputParser;
@@ -352,7 +375,7 @@ class LArrayAccess extends LVar: # var[index]
 		_parser = parser;
 		_node = parser._collapse_map.get(id);
 		if not _node:
-			parser.error_out.error("Operator [] is trying to access an unknown node (%s)."%id);
+			parser.logger.err("Operator [] is trying to access an unknown node (%s)."%id);
 	func value() -> Variant:
 		var idx = _idx.value();
 		var container:Variant;
@@ -371,7 +394,7 @@ class LArrayAccess extends LVar: # var[index]
 		if method.is_valid():
 			return method.call(container,idx);
 		else:
-			_parser.error_out.error("Variable '%s' can't use the [] operator."%container_name);
+			_parser.logger.err("Variable '%s' can't use the [] operator."%container_name);
 			return null;
 
 @abstract class LUnary extends LVar:
@@ -403,41 +426,48 @@ class LOrL extends LBinOp: func value() -> Variant: return a.value() || b.value(
 
 #endregion
 
-# Variables generated at EXECUTION time
-## Maps variable names with its value.
+
+## Maps variable names with its values. Feel free to add variables from outside
+## this class so the code can use them during execution.
 @export var variables: Dictionary[String,Variant] = {};
 
-## Auxiliar variable to hold a reference to a tween during its building phase in a tween definition.
+## Auxiliar variable to hold a reference to a [Tween] during its building phase
+## in a tween definition.
 var current_building_tween : Tween;
 
-# Varaibles generated at COMPILE time (but used during execution)
-## The first Language Node in code.
+
+## First instruction in parsed code.
 var root_node : LInstr;
+
 ## Maps all labels to the instruction they point to.
 var label_map : Dictionary[String,LInstr];
-## Holds all tween definitions so executed tweens can rebuild themselves at execution time.
+
+## Holds all [Tween] definitions so executed tweens can rebuild themselves at execution time.
 var _tween_map : Dictionary[String,LTweenDef];
 
-# Variables used at COMPILE time only
-## Holds the translations of certain syntax to an identifier when collapsed.
-var _collapse_map : Dictionary[String,LangNode] = {};
+
+## Holds the translations of certain syntax when collapsed to a unique node identifier.
+var _collapse_map : Dictionary[String,LangNode];
+
 ## Counter to make collapsed nodes have an unique identifier.
 var _counter := 0;
 
-var error_out : TweenputErrorHandler;
+
+var logger : TweenputLogger;
 
 
 func _init():
 	_compile_regex()
-	error_out = TweenputErrorHandler.new();
+	logger = TweenputLogger.new();
 
+## Parses the whole text and creates an AST whose root is stored in [member root_node]
 func parse(text:String) -> String:
 	if instructions.is_empty(): 
 		push_error("""Tweenput Parser is being used with no instruction set. 
 		Use the parser with a Tweenterpreter or your own implementation instead.""");
 		return "";
 	
-	error_out.clear_label();
+	logger.clear_label();
 	root_node = null;
 	label_map.clear();
 	_tween_map.clear();
@@ -466,7 +496,6 @@ func _remove_comments(text:String) -> String:
 		comment_match = _rcomment.search(text,i);
 	return text;
 
-## Easy One Off Values (literals)
 func _collapse_literals(text:String) -> String:
 	var string := _rstring.search(text);
 	while string:
@@ -496,7 +525,6 @@ func _collapse_literals(text:String) -> String:
 		const_ = _rconst.search(text);
 	return text;
 
-## Stores Label references and collapses them
 func _collapse_labels(text:String) -> String:
 	var label := _rlabel.search(text);
 	while label:
@@ -515,12 +543,12 @@ func _collapse_tween_defs(text:String) -> String:
 		var instr_string := def.get_string("list");
 		var instr_list : Array[LInstrTween];
 		_collapse_t_instr(instr_string,instr_list);
-		# TODO wanr the user for unwanted text instead of ignoring it (like uncollapsed labels)
+		# TODO? wanr the user for unwanted text instead of ignoring it (like uncollapsed labels)
 		
 		var key := _make_node_id()
 		var ini := def.get_start();
 		var end := def.get_end();
-		text = text.erase(ini,end-ini).insert(ini,key);
+		text = text.erase(ini,end-ini);
 		var tween_name := def.get_string("obj");
 		var builder_node := LTweenDef.new(tween_name,instr_list,self);
 		_collapse_map[key] = builder_node
@@ -546,7 +574,7 @@ func _collapse_t_instr(text:String, list:Array[LInstrTween]) -> String:
 		instr = _rinstr.search(text);
 	return text;
 
-## Instruction separation
+## Collapse all instructions with its parameters. Also collapses [Tween] calls.
 func _collapse_instr(text:String) -> String:	
 	var instr := _rinstr.search(text);
 	while instr:
@@ -575,7 +603,7 @@ func _collapse_params(text:String) -> Array[LangNode]:
 		if id.is_empty(): nodes.append(null);
 		else:
 			if _collapse_map.has(id): nodes.append(_collapse_map[id]);
-			else: error_out.error("Incorrect ID as a parameter (%s)"%id);
+			else: logger.err("Incorrect ID as a parameter (%s)"%id);
 	return nodes;
 
 func _collapse_identifiers(text:String) -> String:
@@ -590,14 +618,16 @@ func _collapse_identifiers(text:String) -> String:
 		identifier = _rid.search(text);
 	return text;
 
-## Search recursive patterns of parenthesis, method calls and array indexing.
+## Search recursive patterns by parenthesis, method calls and array indexing.
 func _collapse_recursion(text:String) -> String:
 	var res := _find_recursion_positions(text);
 	while res.x >= 0: # Recursion found!
 		var c := text[res.x];
 		
-		var sub_str := text.substr(res.x+1,res.y-2); # Get inner expression (without parenthesis)
-		var collapsed_exprs :=  _collapse_recursion(sub_str); # Collapse inner recursions first (if any).
+		# Get inner expression (without parenthesis)
+		var sub_str := text.substr(res.x+1,res.y-2);
+		# Collapse inner recursions first (if any).
+		var collapsed_exprs :=  _collapse_recursion(sub_str);
 		var ids := collapsed_exprs.split(",");
 		
 		var nodes : Array[LangNode];
@@ -611,7 +641,7 @@ func _collapse_recursion(text:String) -> String:
 				text = text.erase(res.z,id_name.length()+res.y).insert(res.z,key);
 			else:
 				if ids.size() != 1:
-					error_out.error("Operator [] must have exactly one parameter (%s)"%sub_str);
+					logger.err("Operator [] must have exactly one parameter (%s)"%sub_str);
 					return "";
 				var key := _make_node_id();
 				_collapse_map[key] = LArrayAccess.new(id_name,nodes[0],self);
@@ -619,7 +649,7 @@ func _collapse_recursion(text:String) -> String:
 		else: # Recursive Expr or Array Constructor
 			if c == "(":
 				if ids.size() != 1:
-					error_out.error("Recursive expressions must have exactly one parameter (%s)"%sub_str);
+					logger.err("Recursive expressions must have one parameter only (%s)"%sub_str);
 					return "";
 				text = text.erase(res.x,res.y).insert(res.x,collapsed_exprs.strip_edges());
 			else:
@@ -633,8 +663,11 @@ func _collapse_recursion(text:String) -> String:
 	text = _collapse_expr(text);
 	return text;
 
-## x component is index of symbol, y component is recursion's length, z component is index of first ID. 
-## Both values can be -1 if didn't find its respective characters.
+## Returns three index grouped in a [Vector3i] where:[br]
+## - x = index of first symbol [code]([/code] or [code][[/code].[br] 
+## - y = length of recursion.[br]
+## - z = index of first ID.[br][br]
+## Values will be -1 if didn't find its respective characters.
 func _find_recursion_positions(text:String) -> Vector3i:
 	var rec_start := -1;
 	var type : String;
@@ -663,7 +696,7 @@ func _find_recursion_positions(text:String) -> Vector3i:
 			elif c  == ']': depth -= 1;
 			search_rec_idx += 1;
 	if depth > 0: # Bad grammar, open parenthesis should have closing pair
-		error_out.error("Parse error, recursion in '%s' doesn't have its respective ending symbol."%text);
+		logger.err("Parse error, recursion symbol '%s' found but lacks its closing pair."%type);
 		return Vector3i(-1,-1,-1);
 	
 	if id_start >= 0:
@@ -675,7 +708,7 @@ func _find_recursion_positions(text:String) -> Vector3i:
 	var rec_len := search_rec_idx - rec_start;
 	return Vector3i(rec_start,rec_len,id_start);
 
-## Focus on operators
+## Collapses each operator found by priority order and from left to right.
 func _collapse_expr(text:String) -> String:
 	# Operators in descendent order of priority.
 	var access := _rma.search(text);
@@ -723,7 +756,6 @@ func _collapse_expr(text:String) -> String:
 			"/": _collapse_map[key] = LDiv.new(_collapse_map[v1],_collapse_map[v2]);
 
 		mul = _rmul.search(text);
-		#print(fragment)
 	var add := _radd.search(text);
 	while add:
 		var key := _make_node_id();
@@ -868,7 +900,7 @@ func _join_instructions(text:String) -> void:
 		var id := instr_ids[i];
 		var node : LangNode =_collapse_map.get(id,null);
 		if node == null:
-			error_out.error("Bad error. The following part could not be parsed at all: %s"%id);
+			logger.err("Bad error. The following part could not be parsed at all: %s"%id);
 		if node is LInstr:
 			var l := node as LInstr;
 			prev_node.next = l;

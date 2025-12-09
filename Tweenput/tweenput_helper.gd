@@ -1,4 +1,7 @@
 class_name TweenputHelper
+## This class solely exist because the Godot Engine doesn't support reflection
+## on any [Variant] type that's not an [Object], 
+## which means this has to be done manually.
 
 #region Constructors
 static func V2 (params : Array[TweenputParser.LangNode]) -> Variant:

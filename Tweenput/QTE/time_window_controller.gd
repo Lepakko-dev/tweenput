@@ -1,8 +1,9 @@
 class_name TimeWindowController
-## Offers a way to handle TimeWindows in multi-channel.
+## Offers a way to handle multiple [TimeWindow] using channels. [br]
 
+## A single timeline where multiple [TimeWindow] are laid and made sure none overlap.
 class Channel:
-	## Sorted lists of TimeWindows.
+	## Sorted list of TimeWindows (by time).
 	var tw_list : Array[TimeWindow];
 	## Index of the last valid TW (TWs behind this one won't be check anymore).
 	var last_valid :int;
@@ -69,22 +70,29 @@ class Channel:
 
 var _channels : Dictionary[int,Channel];
 
+## Adds the given [TimeWindow] to the specified [TimeWindowController.Channel]
 func add_tw(tw:TimeWindow,channel:int=0):
 	_channels.get_or_add(channel,Channel.new()).add_tw(tw);
 
+## Remove all [TimeWindow]s of each channel.
 func clear_channels():
 	for c in _channels.values():
 		c.clear_list();
 
+## Resets time and results of each channel.
 func reset_channels():
 	for c in _channels.values():
 		c.reset_time();
 
+## Returns the channel's reference of the given index.
 func get_channel(idx:int) -> Channel:
 	return _channels.get(idx,null);
 
 
-## Checks input against the corresponding TWs in each channel
+## Checks input against the corresponding [TimeWindow]s in each channel.[br][br]
+## - [param time]: The time to check against in the timeline of each channel.
+## This value cannot be less than other previously checked times. [br][br]
+## See also [method TimeWindowController.Channel.check_input]
 func check_input(time:float):
 	for k in _channels:
 		_channels[k].check_input(time);

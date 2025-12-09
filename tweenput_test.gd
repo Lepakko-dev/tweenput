@@ -6,7 +6,7 @@ extends Node
 @onready var interpreter: Tweenterpreter = $Tweenterpreter
 
 func _ready() -> void:
-	interpreter.parser.error_out.use_label($RichTextLabel);
+	interpreter.parser.logger.use_label($RichTextLabel);
 	tin.text_changed.connect(_refresh);
 	run_button.pressed.connect(test);
 	_refresh()
