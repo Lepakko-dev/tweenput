@@ -1,8 +1,8 @@
 [gd_scene load_steps=5 format=3 uid="uid://dunt68n00nysa"]
 
 [ext_resource type="Script" uid="uid://bqlxodq8jt0vb" path="res://tweenput_test.gd" id="1_sy5k4"]
-[ext_resource type="Script" uid="uid://bsihlb1wnkfjg" path="res://Tweenput/tweenterpreter.gd" id="2_j2q8x"]
-[ext_resource type="Script" uid="uid://co5sepgqjdyyo" path="res://Tweenput/tweenput_parser.gd" id="3_112p8"]
+[ext_resource type="Script" uid="uid://bsihlb1wnkfjg" path="res://addons/tweenput/tweenterpreter.gd" id="2_j2q8x"]
+[ext_resource type="Script" uid="uid://co5sepgqjdyyo" path="res://addons/tweenput/tweenput_parser.gd" id="3_112p8"]
 [ext_resource type="Texture2D" uid="uid://2gjjcw6bd5bg" path="res://icon.svg" id="4_e2u21"]
 
 [node name="Node" type="Node"]
