@@ -42,59 +42,32 @@ const LOOKBREAK = r"(?<=(?:\n|;|^)\s{0,99})"
 # Huge lookbehind to not take comments inside string literals
 const COMMENT = r'(?<!(\n|^)[^"]{0,99}"[^"]{0,99})#[^\n]*'
 
-var _rconst := RegEx.new();
-var _rstring := RegEx.new();
-var _rid := RegEx.new();
-var _rma := RegEx.new();
+var _rconst := RegEx.create_from_string(CONST);
+var _rstring := RegEx.create_from_string(STRING);
+var _rid := RegEx.create_from_string(ID);
+var _rma := RegEx.create_from_string(MEMBR_ACCESS_EXPR);
 
-var _runa := RegEx.new();
-var _rmul := RegEx.new();
-var _radd := RegEx.new();
-var _rshf := RegEx.new();
+var _runa := RegEx.create_from_string(UNARY_EXPR);
+var _rmul := RegEx.create_from_string(MUL_EXPR);
+var _radd := RegEx.create_from_string(ADD_EXPR);
+var _rshf := RegEx.create_from_string(SHIFT_EXPR);
 
-var _rrel := RegEx.new();
-var _req := RegEx.new();
+var _rrel := RegEx.create_from_string(REL_EXPR);
+var _req := RegEx.create_from_string(EQ_EXPR);
 
-var _rand := RegEx.new();
-var _rxor := RegEx.new();
-var _ror := RegEx.new();
+var _rand := RegEx.create_from_string(AND_EXPR);
+var _rxor := RegEx.create_from_string(XOR_EXPR);
+var _ror := RegEx.create_from_string(OR_EXPR);
 
-var _randl := RegEx.new();
-var _rorl := RegEx.new();
+var _randl := RegEx.create_from_string(LOGIC_AND_EXPR);
+var _rorl := RegEx.create_from_string(LOGIC_OR_EXPR);
 
-var _rinstr := RegEx.new();
-var _rtween := RegEx.new();
-var _rlabel := RegEx.new();
+var _rinstr := RegEx.create_from_string(INSTR);
+var _rtween := RegEx.create_from_string(TWEEN_DEF);
+var _rlabel := RegEx.create_from_string(LABEL);
 
-var _rcomment = RegEx.new();
+var _rcomment = RegEx.create_from_string(COMMENT);
 
-func _compile_regex():
-	_rconst.compile(CONST);
-	_rstring.compile(STRING);
-	_rid.compile(ID);
-	
-	_rma.compile(MEMBR_ACCESS_EXPR);
-	
-	_runa.compile(UNARY_EXPR);
-	_rmul.compile(MUL_EXPR);
-	_radd.compile(ADD_EXPR);
-	_rshf.compile(SHIFT_EXPR);
-	
-	_rrel.compile(REL_EXPR);
-	_req.compile(EQ_EXPR);
-	
-	_rand.compile(AND_EXPR);
-	_rxor.compile(XOR_EXPR);
-	_ror.compile(OR_EXPR);
-	
-	_randl.compile(LOGIC_AND_EXPR);
-	_rorl.compile(LOGIC_OR_EXPR);
-	
-	_rinstr.compile(INSTR);
-	_rtween.compile(TWEEN_DEF);
-	_rlabel.compile(LABEL);
-	
-	_rcomment.compile(COMMENT);
 #endregion
 
 ## Exclusive instructions for Tween definition only.
@@ -453,12 +426,8 @@ var _collapse_map: Dictionary[String, LangNode];
 var _counter := 0;
 
 
-var logger: TweenputLogger;
+var logger := TweenputLogger.new();
 
-
-func _init():
-	_compile_regex()
-	logger = TweenputLogger.new();
 
 ## Parses the whole text and creates an AST whose root is stored in [member root_node]
 func parse(text: String) -> String:
