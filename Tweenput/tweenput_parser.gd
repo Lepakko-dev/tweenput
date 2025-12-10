@@ -6,37 +6,37 @@ class_name TweenputParser
 # Commented RegEx are unused but technically part of the formal grammar.
 
 # Most lookarounds are there to avoid conflict with our language collapser or grammar rules.
-const STRING =	r'"(?<val>(?:[^"\n]|(?:\\"))*)"'
+const STRING = r'"(?<val>(?:[^"\n]|(?:\\"))*)"'
 # Any form of number
-const CONST =	r"(?<![A-Za-z_#]{1,9}\d{0,9})(?:(?<bin>0b(?:[0-1])+)|(?<hex>0x(?:\d|[a-f])+)|(?<dec>\d+(?:\.\d*)?))"
-const ID =		r"(?<obj>[a-zA-Z_]\w*)"
+const CONST = r"(?<![A-Za-z_#]{1,9}\d{0,9})(?:(?<bin>0b(?:[0-1])+)|(?<hex>0x(?:\d|[a-f])+)|(?<dec>\d+(?:\.\d*)?))"
+const ID = r"(?<obj>[a-zA-Z_]\w*)"
 
 const MEMBR_ACCESS_EXPR = r"(?<parent>#\d+)\.(?<member>#\d+)";
-const UNARY_EXPR =	r"(?<=-|\D|^)"+SEP+r"(?<op>\+|-|~|!)+"+SEP+r"(?<v1>#\d+)"
-const MUL_EXPR =	r"(?<v1>#\d+)"+SEP+r"(?<op>\*|\/)"+SEP+r"(?<v2>#\d+)"
-const ADD_EXPR =	r"(?<v1>#\d+)"+SEP+r"(?<op>\+|-)"+SEP+r"(?<v2>#\d+)"
-const SHIFT_EXPR =	r"(?<v1>#\d+)"+SEP+r"(?<op>>>|<<)"+SEP+r"(?<v2>#\d+)"
+const UNARY_EXPR = r"(?<=-|\D|^)" + SEP + r"(?<op>\+|-|~|!)+" + SEP + r"(?<v1>#\d+)"
+const MUL_EXPR = r"(?<v1>#\d+)" + SEP + r"(?<op>\*|\/)" + SEP + r"(?<v2>#\d+)"
+const ADD_EXPR = r"(?<v1>#\d+)" + SEP + r"(?<op>\+|-)" + SEP + r"(?<v2>#\d+)"
+const SHIFT_EXPR = r"(?<v1>#\d+)" + SEP + r"(?<op>>>|<<)" + SEP + r"(?<v2>#\d+)"
 
-const REL_EXPR =	r"(?<v1>#\d+)"+SEP+r"(?<op>>|<|>=|<=)"+SEP+r"(?<v2>#\d+)"
-const EQ_EXPR =		r"(?<v1>#\d+)"+SEP+r"(?<op>==|!=)"+SEP+r"(?<v2>#\d+)"
+const REL_EXPR = r"(?<v1>#\d+)" + SEP + r"(?<op>>|<|>=|<=)" + SEP + r"(?<v2>#\d+)"
+const EQ_EXPR = r"(?<v1>#\d+)" + SEP + r"(?<op>==|!=)" + SEP + r"(?<v2>#\d+)"
 
-const AND_EXPR =	r"(?<v1>#\d+)"+SEP+r"&"+SEP+r"(?<v2>#\d+)"
-const XOR_EXPR =	r"(?<v1>#\d+)"+SEP+r"\^"+SEP+r"(?<v2>#\d+)"
-const OR_EXPR =		r"(?<v1>#\d+)"+SEP+r"\|"+SEP+r"(?<v2>#\d+)"
+const AND_EXPR = r"(?<v1>#\d+)" + SEP + r"&" + SEP + r"(?<v2>#\d+)"
+const XOR_EXPR = r"(?<v1>#\d+)" + SEP + r"\^" + SEP + r"(?<v2>#\d+)"
+const OR_EXPR = r"(?<v1>#\d+)" + SEP + r"\|" + SEP + r"(?<v2>#\d+)"
 
-const LOGIC_AND_EXPR =	r"(?<v1>#\d+)"+SEP+r"&&"+SEP+r"(?<v2>#\d+)"
-const LOGIC_OR_EXPR =	r"(?<v1>#\d+)"+SEP+r"\|\|"+SEP+r"(?<v2>#\d+)"
+const LOGIC_AND_EXPR = r"(?<v1>#\d+)" + SEP + r"&&" + SEP + r"(?<v2>#\d+)"
+const LOGIC_OR_EXPR = r"(?<v1>#\d+)" + SEP + r"\|\|" + SEP + r"(?<v2>#\d+)"
 
-const INSTR =		LOOKBREAK+r"(?<instr>[a-zA-Z_]\w*)"+SEP+r"(?:"+H+r"(?<params>[^\n;:{]+))?(?:[\n;]+|$)"
-const LABEL =		LOOKBREAK+r"(?<label>[a-zA-Z_]\w*):(?:[^\S]*)(?<node>#\d+)"
-const TWEEN_DEF =	LOOKBREAK+r"("+ID+r"[^\S\n]*\{(?<list>(?:[\n;]*\s*(?:[^\n;}]+)?)*)?\})";
+const INSTR = LOOKBREAK + r"(?<instr>[a-zA-Z_]\w*)" + SEP + r"(?:" + H + r"(?<params>[^\n;:{]+))?(?:[\n;]+|$)"
+const LABEL = LOOKBREAK + r"(?<label>[a-zA-Z_]\w*):(?:[^\S]*)(?<node>#\d+)"
+const TWEEN_DEF = LOOKBREAK + r"(" + ID + r"[^\S\n]*\{(?<list>(?:[\n;]*\s*(?:[^\n;}]+)?)*)?\})";
 #const TWEEN_EXE =	LOOKBREAK+r"(?<tween>[a-zA-Z_]\w*)"
 
 #const LINE =		"("+INSTR+"|"+TWEEN_DEF+"|"+LABEL+"|"+TWEEN_EXE+")"
 #const S = 			"^"+LINE+"("+BREAK+LINE+")*"+BREAK+"?$"
 
-const H =		r"(?:[^\S\n])"
-const SEP =		r"(?:[^\S\n]*)"
+const H = r"(?:[^\S\n])"
+const SEP = r"(?:[^\S\n]*)"
 #const BREAK =	r"(?:(?:\n|;|^)\s*)"
 const LOOKBREAK = r"(?<=(?:\n|;|^)\s{0,99})"
 # Huge lookbehind to not take comments inside string literals
@@ -98,48 +98,48 @@ func _compile_regex():
 #endregion
 
 ## Exclusive instructions for Tween definition only.
-const TWEEN_INSTRUCTIONS : Dictionary[String,String] = {
-	"BIND":"bind_node",
-	"INTERVAL":"tween_interval",
-	"CALLBACK":"tween_callback",
-	"METHOD":"tween_method",
-	"PROPERTY":"tween_property",
-	"SUBTWEEN":"tween_subtween",
-	"LOOPS":"set_loops",
-	"PARALLEL":"set_parallel",
-	"EASE":"set_ease",
-	"IGNORE_TIME_SCALE":"set_ignore_time_scale",
-	"PAUSE_MODE":"set_pause_mode",
-	"PROCESS_MODE":"set_process_mode",
-	"SPEED_SCALE":"set_speed_scale",
-	"TRANS":"set_trans",
+const TWEEN_INSTRUCTIONS: Dictionary[String, String] = {
+	"BIND": "bind_node",
+	"INTERVAL": "tween_interval",
+	"CALLBACK": "tween_callback",
+	"METHOD": "tween_method",
+	"PROPERTY": "tween_property",
+	"SUBTWEEN": "tween_subtween",
+	"LOOPS": "set_loops",
+	"PARALLEL": "set_parallel",
+	"EASE": "set_ease",
+	"IGNORE_TIME_SCALE": "set_ignore_time_scale",
+	"PAUSE_MODE": "set_pause_mode",
+	"PROCESS_MODE": "set_process_mode",
+	"SPEED_SCALE": "set_speed_scale",
+	"TRANS": "set_trans",
 };
 
 ## Map of all instruction names with their implementation. Feel free to add or modify. [br]
 ## Is filled automatically if the parent node is [Tweenterpreter].
-@export var instructions : Dictionary[String,Callable] = {};
+@export var instructions: Dictionary[String, Callable] = {};
 
 #region AST Classes
 ## Base type of node for the AST
 @abstract class LangNode:
 	## Doesn't need to be unique.
-	var node_name : String;
+	var node_name: String;
 	## Will return the processed value of whatever it contains. 
 	@abstract func value() -> Variant;
 
 ## Holds information of a whole instruction with parameters if any.
 class LInstr extends LangNode:
-	var next : LInstr;
-	var _params : Array[LangNode];
-	var _cached_instr : Callable;
-	func _init(name:String,params:Array[LangNode],parser:TweenputParser) -> void:
+	var next: LInstr;
+	var _params: Array[LangNode];
+	var _cached_instr: Callable;
+	func _init(name: String, params: Array[LangNode], parser: TweenputParser) -> void:
 		node_name = name.to_upper();
 		_params = params;
-		_cached_instr = parser.instructions.get(node_name,Callable());
+		_cached_instr = parser.instructions.get(node_name, Callable());
 		var required_param_count := _cached_instr.get_argument_count();
 		if params.size() > required_param_count:
 			parser.logger.err("""Bad argument count. Instruction %s needs %d arguments.
-				%d were given."""%[name,required_param_count,params.size()]);
+				%d were given.""" % [name, required_param_count, params.size()]);
 		if _cached_instr.is_null():
 			if node_name in parser.TWEEN_INSTRUCTIONS:
 				parser.logger.err("Tween Instructions cannot be outside a Tween definition (%s)"
@@ -154,16 +154,16 @@ class LInstr extends LangNode:
 ## Instruction node exclusive to [Tween] definition.
 class LInstrTween extends LInstr:
 	# Doesn't need to use 'next' var since order is handled by LTweenDef class
-	var _m_name : String;
-	var _parser:TweenputParser
-	func _init(name:String,params:Array[LangNode],parser:TweenputParser):
+	var _m_name: String;
+	var _parser: TweenputParser
+	func _init(name: String, params: Array[LangNode], parser: TweenputParser):
 		node_name = name.to_upper();
 		_params = params;
 		_parser = parser;
-		_m_name = parser.TWEEN_INSTRUCTIONS.get(node_name,"");
+		_m_name = parser.TWEEN_INSTRUCTIONS.get(node_name, "");
 		if _m_name.is_empty():
 			parser.logger.err("Bad instruction name (%s)"%name);
-			return;
+			return ;
 		elif node_name in parser.instructions:
 			parser.logger.err("Instruction '%s' cannot be inside a Tween definition."%name);
 	
@@ -174,11 +174,11 @@ class LInstrTween extends LInstr:
 			_cached_instr = _parser.current_building_tween.call;
 		var correct_arg_count := _parser.current_building_tween.get_method_argument_count(_m_name);
 		if correct_arg_count != _params.size():
-			_parser.logger.err("Incorrect argument count for %s (%d) should be %d"%
-				[node_name,_params.size(),correct_arg_count]);
+			_parser.logger.err("Incorrect argument count for %s (%d) should be %d" %
+				[node_name, _params.size(), correct_arg_count]);
 			return Callable();
 		
-		var updated_params : Array[Variant] = [_m_name];
+		var updated_params: Array[Variant] = [_m_name];
 		for p in _params:
 			updated_params.append(p.value());
 		var res := _cached_instr.bindv(updated_params);
@@ -187,24 +187,24 @@ class LInstrTween extends LInstr:
 
 # "Any double quoted string"
 class LString extends LangNode:
-	var _literal : String;
-	func _init(string:String):
+	var _literal: String;
+	func _init(string: String):
 		_literal = string;
 	func value() -> Variant:
 		return _literal;
 
 # 1, 2.3, 0b01, 0x4f
 class LConst extends LangNode:
-	var _val : Variant;
-	func _init(number:Variant):
+	var _val: Variant;
+	func _init(number: Variant):
 		_val = number
 	func value() -> Variant:
 		return _val;
 
 # [], ["any","Variant","type", 99, variable], [ [],[],[] ]
 class LConstArray extends LangNode:
-	var _elems : Array[LangNode];
-	func _init(elems:Array[LangNode]) -> void:
+	var _elems: Array[LangNode];
+	func _init(elems: Array[LangNode]) -> void:
 		_elems = elems;
 	func value() -> Variant:
 		var array = [];
@@ -215,9 +215,9 @@ class LConstArray extends LangNode:
 
 ## Contains the whole [Tween] definition with all instructions.
 class LTweenDef extends LangNode:
-	var _instr_list : Array[LInstrTween];
-	var _parser : TweenputParser;
-	func _init(name:String, instr_list:Array[LInstrTween], parser:TweenputParser):
+	var _instr_list: Array[LInstrTween];
+	var _parser: TweenputParser;
+	func _init(name: String, instr_list: Array[LInstrTween], parser: TweenputParser):
 		node_name = name;
 		_instr_list = instr_list;
 		_parser = parser;
@@ -228,7 +228,7 @@ class LTweenDef extends LangNode:
 	func execute() -> void:
 		# Build subtweens first (if any)
 		for instr in _instr_list:
-			var instr_name : String = instr.node_name;
+			var instr_name: String = instr.node_name;
 			if instr_name == "SUBTWEEN":
 				var sub_t_name := (instr._params.get(0) as LangNode).node_name;
 				if sub_t_name in _parser._tween_map:
@@ -242,12 +242,12 @@ class LTweenDef extends LangNode:
 
 ## Represents a single [Tween] execution.
 class LTweenExe extends LInstr:
-	var _parser : TweenputParser;
-	var tween : Tween;
-	func _init(tween_id:String,parser:TweenputParser) -> void:
+	var _parser: TweenputParser;
+	var tween: Tween;
+	func _init(tween_id: String, parser: TweenputParser) -> void:
 		node_name = tween_id;
 		_parser = parser;
-		var builder : LTweenDef = _parser._tween_map.get(node_name,null);
+		var builder: LTweenDef = _parser._tween_map.get(node_name, null);
 		if builder: _cached_instr = builder.execute;
 	func value() -> Variant:
 		return node_name;
@@ -257,9 +257,9 @@ class LTweenExe extends LInstr:
 	func execute() -> Callable:
 		if _cached_instr: # Has a tween definition to update the tween.
 			_cached_instr.call();
-			tween = _parser.variables.get(node_name,null) as Tween;
+			tween = _parser.variables.get(node_name, null) as Tween;
 		else: # Is a tween variable set outside of Tweenput code.
-			var aux = _parser.variables.get(node_name,null);
+			var aux = _parser.variables.get(node_name, null);
 			if not aux or aux is not Tween:
 				_parser.logger.err("Variable %s is not a Tween"%node_name);
 				return Callable();
@@ -271,12 +271,12 @@ class LTweenExe extends LInstr:
 ## (to group nodes usually checked together in instructions)
 @abstract class LVar extends LangNode:
 	## Stores the parent reference (necessary due to de-reference working in opposite order)
-	var ref_ctx : Variant;
+	var ref_ctx: Variant;
 
 ## Represents a variable (or a class member)
 class LIdentifier extends LVar:
-	var _parser : TweenputParser;
-	func _init(name:Variant, parser : TweenputParser):
+	var _parser: TweenputParser;
+	func _init(name: Variant, parser: TweenputParser):
 		node_name = name;
 		_parser = parser;
 	func value() -> Variant:
@@ -290,27 +290,27 @@ class LIdentifier extends LVar:
 			return _parser.variables.get(node_name);
 
 @abstract class LBinOp extends LVar:
-	var a : LangNode;
-	var b : LangNode;
-	func _init(left_var: LangNode, right_var:LangNode):
-		a = left_var; 
+	var a: LangNode;
+	var b: LangNode;
+	func _init(left_var: LangNode, right_var: LangNode):
+		a = left_var;
 		b = right_var;
 
 ## Represents the '.' operator used to access members and methods of objects.
 class LDeReference extends LBinOp:
 	var _parser: TweenputParser;
-	func _init(left_var: LangNode, right_var:LangNode, parser:TweenputParser):
-		super(left_var,right_var);
+	func _init(left_var: LangNode, right_var: LangNode, parser: TweenputParser):
+		super (left_var, right_var);
 		_parser = parser;
 		if a is not LVar:
 			parser.logger.err("Trying to access method or variable from invalid node.")
 		if b is not LVar:
 			parser.logger.err("Trying to access an invalid method or variable node.");
-		node_name = "%s.%s"%[a.node_name,b.node_name];
+		node_name = "%s.%s" % [a.node_name, b.node_name];
 	
 	## Returns the recursively de-referenced value of the operation.
 	func value() -> Variant:
-		var aux : Variant;
+		var aux: Variant;
 		if ref_ctx != null: aux = ref_ctx;
 		else: aux = a.value();
 		
@@ -325,51 +325,51 @@ class LDeReference extends LBinOp:
 ## Some methods and constructors from [Variant] derived classes (that are not [Object])
 ## are implemented as well.
 class LMethodCall extends LVar:
-	var _node : LVar;
-	var _params : Array[LangNode];
-	var _parser : TweenputParser;
-	var _cached_instr : Callable;
-	func _init(id:String, params:Array[LangNode], parser:TweenputParser):
+	var _node: LVar;
+	var _params: Array[LangNode];
+	var _parser: TweenputParser;
+	var _cached_instr: Callable;
+	func _init(id: String, params: Array[LangNode], parser: TweenputParser):
 		node_name = id;
 		_params = params;
 		_parser = parser;
 		_node = parser._collapse_map.get(id);
 		if not _node:
 			parser.logger.err("Operator [] is trying to access an unknown node (%s)."%id);
-			return;
+			return ;
 		_cached_instr = TweenputHelper.construct(_node.node_name);
 	func value() -> Variant:
 		var method_name := _node.node_name;
 		if ref_ctx != null: # Method from an object
 			if ref_ctx is Object: # Can use reflection
 				if not ref_ctx.has_method(method_name):
-					_parser.logger.err("Invalid method '%s' of object '%s'"%[method_name,ref_ctx]);
+					_parser.logger.err("Invalid method '%s' of object '%s'" % [method_name, ref_ctx]);
 					return null;
-				var updated_params : Array;
+				var updated_params: Array;
 				for p in _params: updated_params.append(p.value());
-				return ref_ctx.call(method_name,updated_params);
+				return ref_ctx.call(method_name, updated_params);
 			else: # Another type of variant (Manual Reflection)
-				var method := TweenputHelper.reflect(ref_ctx,method_name);
+				var method := TweenputHelper.reflect(ref_ctx, method_name);
 				if method.is_valid():
-					var updated_params : Array;
-					for p in _params: 
+					var updated_params: Array;
+					for p in _params:
 						if p:
 							updated_params.append(p.value());
 					return method.bindv(updated_params).call(ref_ctx);
 				else:
 					_parser.logger.err("Invalid method or not implemented (%s)"%method_name);
 			return null;
-		else: #Standalone method (Constructors, etc)
-			if not _cached_instr.is_valid(): 
+		else: # Standalone method (Constructors, etc)
+			if not _cached_instr.is_valid():
 				_parser.logger.err("Unknown constuctor (%s)"%method_name);
 			return _cached_instr.call(_params);
 
 # array[index], dict[key]
 class LArrayAccess extends LVar:
-	var _node : LVar;
-	var _idx : LangNode;
-	var _parser : TweenputParser;
-	func _init(id:String, idx:LangNode, parser:TweenputParser):
+	var _node: LVar;
+	var _idx: LangNode;
+	var _parser: TweenputParser;
+	func _init(id: String, idx: LangNode, parser: TweenputParser):
 		node_name = id;
 		_idx = idx;
 		_parser = parser;
@@ -378,27 +378,27 @@ class LArrayAccess extends LVar:
 			parser.logger.err("Operator [] is trying to access an unknown node (%s)."%id);
 	func value() -> Variant:
 		var idx = _idx.value();
-		var container:Variant;
-		var method : Callable;
+		var container: Variant;
+		var method: Callable;
 		var container_name := _node.node_name;
 		if ref_ctx != null: # Container is member of some object
 			if ref_ctx is Object:
 				if _node is LIdentifier: container = ref_ctx.get(container_name);
 				else: container = null;
 			else: # Need to manually reflect
-				container = TweenputHelper.reflect(ref_ctx,container_name).call();
+				container = TweenputHelper.reflect(ref_ctx, container_name).call();
 		else: # Container is a true variable (managed by the parser)
 			container = _parser.variables.get(container_name);
 		
-		method = TweenputHelper.reflect(container,"[]");
+		method = TweenputHelper.reflect(container, "[]");
 		if method.is_valid():
-			return method.call(container,idx);
+			return method.call(container, idx);
 		else:
 			_parser.logger.err("Variable '%s' can't use the [] operator."%container_name);
 			return null;
 
 @abstract class LUnary extends LVar:
-	var node : LangNode;
+	var node: LangNode;
 	func _init(e: LangNode): node = e;
 
 class LPlus extends LUnary: func value() -> Variant: return node.value();
@@ -429,31 +429,31 @@ class LOrL extends LBinOp: func value() -> Variant: return a.value() || b.value(
 
 ## Maps variable names with its values. Feel free to add variables from outside
 ## this class so the code can use them during execution.
-@export var variables: Dictionary[String,Variant] = {};
+@export var variables: Dictionary[String, Variant] = {};
 
 ## Auxiliar variable to hold a reference to a [Tween] during its building phase
 ## in a tween definition.
-var current_building_tween : Tween;
+var current_building_tween: Tween;
 
 
 ## First instruction in parsed code.
-var root_node : LInstr;
+var root_node: LInstr;
 
 ## Maps all labels to the instruction they point to.
-var label_map : Dictionary[String,LInstr];
+var label_map: Dictionary[String, LInstr];
 
 ## Holds all [Tween] definitions so executed tweens can rebuild themselves at execution time.
-var _tween_map : Dictionary[String,LTweenDef];
+var _tween_map: Dictionary[String, LTweenDef];
 
 
 ## Holds the translations of certain syntax when collapsed to a unique node identifier.
-var _collapse_map : Dictionary[String,LangNode];
+var _collapse_map: Dictionary[String, LangNode];
 
 ## Counter to make collapsed nodes have an unique identifier.
 var _counter := 0;
 
 
-var logger : TweenputLogger;
+var logger: TweenputLogger;
 
 
 func _init():
@@ -461,8 +461,8 @@ func _init():
 	logger = TweenputLogger.new();
 
 ## Parses the whole text and creates an AST whose root is stored in [member root_node]
-func parse(text:String) -> String:
-	if instructions.is_empty(): 
+func parse(text: String) -> String:
+	if instructions.is_empty():
 		push_error("""Tweenput Parser is being used with no instruction set. 
 		Use the parser with a Tweenterpreter or your own implementation instead.""");
 		return "";
@@ -478,7 +478,7 @@ func parse(text:String) -> String:
 	
 	# Main parsing steps (order is crucial)
 	text = _remove_comments(text);
-	text = _collapse_literals(text); #(numbers and strings)
+	text = _collapse_literals(text); # (numbers and strings)
 	text = _collapse_tween_defs(text);
 	text = _collapse_instr(text);
 	text = _collapse_labels(text);
@@ -487,16 +487,16 @@ func parse(text:String) -> String:
 	return text
 
 
-func _remove_comments(text:String) -> String:
+func _remove_comments(text: String) -> String:
 	var comment_match := _rcomment.search(text);
 	while comment_match:
 		var i := comment_match.get_start();
 		var l := comment_match.get_end() - i;
-		text = text.erase(i,l);
-		comment_match = _rcomment.search(text,i);
+		text = text.erase(i, l);
+		comment_match = _rcomment.search(text, i);
 	return text;
 
-func _collapse_literals(text:String) -> String:
+func _collapse_literals(text: String) -> String:
 	var string := _rstring.search(text);
 	while string:
 		var key := _make_node_id();
@@ -504,7 +504,7 @@ func _collapse_literals(text:String) -> String:
 		_collapse_map[key] = LString.new(val);
 		var idx := string.get_start();
 		var full := string.get_string();
-		text = text.erase(idx,full.length()).insert(idx,key);
+		text = text.erase(idx, full.length()).insert(idx, key);
 		string = _rstring.search(text);
 		
 	var const_ := _rconst.search(text);
@@ -521,11 +521,11 @@ func _collapse_literals(text:String) -> String:
 			else:
 				_collapse_map[key] = LConst.new(val.to_int());
 		var idx := const_.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 		const_ = _rconst.search(text);
 	return text;
 
-func _collapse_labels(text:String) -> String:
+func _collapse_labels(text: String) -> String:
 	var label := _rlabel.search(text);
 	while label:
 		var i := label.get_start();
@@ -533,31 +533,31 @@ func _collapse_labels(text:String) -> String:
 		var label_name := label.get_string("label");
 		var node_id := label.get_string("node");
 		label_map[label_name] = _collapse_map[node_id] as LInstr;
-		text = text.erase(i,l).insert(i,node_id);
-		label = _rlabel.search(text,i);
+		text = text.erase(i, l).insert(i, node_id);
+		label = _rlabel.search(text, i);
 	return text;
 
-func _collapse_tween_defs(text:String) -> String:
+func _collapse_tween_defs(text: String) -> String:
 	var def := _rtween.search(text);
 	while def:
 		var instr_string := def.get_string("list");
-		var instr_list : Array[LInstrTween];
-		_collapse_t_instr(instr_string,instr_list);
+		var instr_list: Array[LInstrTween];
+		_collapse_t_instr(instr_string, instr_list);
 		# TODO? wanr the user for unwanted text instead of ignoring it (like uncollapsed labels)
 		
 		var key := _make_node_id()
 		var ini := def.get_start();
 		var end := def.get_end();
-		text = text.erase(ini,end-ini);
+		text = text.erase(ini, end - ini);
 		var tween_name := def.get_string("obj");
-		var builder_node := LTweenDef.new(tween_name,instr_list,self);
+		var builder_node := LTweenDef.new(tween_name, instr_list, self);
 		_collapse_map[key] = builder_node
 		_tween_map[tween_name] = builder_node;
 		def = _rtween.search(text);
 	return text
 
 ## Groups all tween instructions of a tween definition
-func _collapse_t_instr(text:String, list:Array[LInstrTween]) -> String:	
+func _collapse_t_instr(text: String, list: Array[LInstrTween]) -> String:
 	var instr := _rinstr.search(text);
 	while instr:
 		var key := _make_node_id();
@@ -566,16 +566,16 @@ func _collapse_t_instr(text:String, list:Array[LInstrTween]) -> String:
 		var params := instr.get_string("params");
 		
 		var nodes := _collapse_params(params);
-		var lit := LInstrTween.new(instr_name,nodes,self);
+		var lit := LInstrTween.new(instr_name, nodes, self);
 		list.append(lit);
 		_collapse_map[key] = lit;
 		var idx := instr.get_start();
-		text = text.erase(idx,full.length()).insert(idx,key+"\n");
+		text = text.erase(idx, full.length()).insert(idx, key + "\n");
 		instr = _rinstr.search(text);
 	return text;
 
 ## Collapse all instructions with its parameters. Also collapses [Tween] calls.
-func _collapse_instr(text:String) -> String:	
+func _collapse_instr(text: String) -> String:
 	var instr := _rinstr.search(text);
 	while instr:
 		var key := _make_node_id();
@@ -585,19 +585,19 @@ func _collapse_instr(text:String) -> String:
 		var params := instr.get_string("params");
 		
 		if params.is_empty() and instr_name in _tween_map: # Must be a tween call
-			_collapse_map[key] = LTweenExe.new(instr_name,self);
+			_collapse_map[key] = LTweenExe.new(instr_name, self);
 		else: # It's a regular instruction
 			var nodes := _collapse_params(params);
-			_collapse_map[key] = LInstr.new(instr_name,nodes,self);
-		text = text.erase(idx,full.length()).insert(idx,key+"\n");
+			_collapse_map[key] = LInstr.new(instr_name, nodes, self);
+		text = text.erase(idx, full.length()).insert(idx, key + "\n");
 		instr = _rinstr.search(text);
 	return text;
 
-func _collapse_params(text:String) -> Array[LangNode]:
+func _collapse_params(text: String) -> Array[LangNode]:
 	if text.is_empty(): return [];
 	text = _collapse_identifiers(text);
 	text = _collapse_recursion(text);
-	var nodes : Array[LangNode];
+	var nodes: Array[LangNode];
 	for param in text.split(','):
 		var id := param.strip_edges();
 		if id.is_empty(): nodes.append(null);
@@ -606,56 +606,56 @@ func _collapse_params(text:String) -> Array[LangNode]:
 			else: logger.err("Incorrect ID as a parameter (%s)"%id);
 	return nodes;
 
-func _collapse_identifiers(text:String) -> String:
+func _collapse_identifiers(text: String) -> String:
 	var identifier := _rid.search(text);
 	while identifier:
 		var id_name := identifier.get_string();
 		var key := "";
 		key = _make_node_id();
-		_collapse_map[key] = LIdentifier.new(id_name,self);
+		_collapse_map[key] = LIdentifier.new(id_name, self);
 		var idx := identifier.get_start();
-		text = text.erase(idx,id_name.length()).insert(idx,key);
+		text = text.erase(idx, id_name.length()).insert(idx, key);
 		identifier = _rid.search(text);
 	return text;
 
 ## Search recursive patterns by parenthesis, method calls and array indexing.
-func _collapse_recursion(text:String) -> String:
+func _collapse_recursion(text: String) -> String:
 	var res := _find_recursion_positions(text);
 	while res.x >= 0: # Recursion found!
 		var c := text[res.x];
 		
 		# Get inner expression (without parenthesis)
-		var sub_str := text.substr(res.x+1,res.y-2);
+		var sub_str := text.substr(res.x + 1, res.y - 2);
 		# Collapse inner recursions first (if any).
-		var collapsed_exprs :=  _collapse_recursion(sub_str);
+		var collapsed_exprs := _collapse_recursion(sub_str);
 		var ids := collapsed_exprs.split(",");
 		
-		var nodes : Array[LangNode];
+		var nodes: Array[LangNode];
 		for id in ids: nodes.append(_collapse_map.get(id.strip_edges()));
 		
 		if res.z >= 0: # Method Call or Array Access
-			var id_name := text.substr(res.z,res.x-res.z);
+			var id_name := text.substr(res.z, res.x - res.z);
 			if c == "(":
 				var key := _make_node_id();
-				_collapse_map[key] = LMethodCall.new(id_name,nodes,self);
-				text = text.erase(res.z,id_name.length()+res.y).insert(res.z,key);
+				_collapse_map[key] = LMethodCall.new(id_name, nodes, self);
+				text = text.erase(res.z, id_name.length() + res.y).insert(res.z, key);
 			else:
 				if ids.size() != 1:
 					logger.err("Operator [] must have exactly one parameter (%s)"%sub_str);
 					return "";
 				var key := _make_node_id();
-				_collapse_map[key] = LArrayAccess.new(id_name,nodes[0],self);
-				text = text.erase(res.z,id_name.length()+res.y).insert(res.z,key);
+				_collapse_map[key] = LArrayAccess.new(id_name, nodes[0], self);
+				text = text.erase(res.z, id_name.length() + res.y).insert(res.z, key);
 		else: # Recursive Expr or Array Constructor
 			if c == "(":
 				if ids.size() != 1:
 					logger.err("Recursive expressions must have one parameter only (%s)"%sub_str);
 					return "";
-				text = text.erase(res.x,res.y).insert(res.x,collapsed_exprs.strip_edges());
+				text = text.erase(res.x, res.y).insert(res.x, collapsed_exprs.strip_edges());
 			else:
 				var key := _make_node_id();
 				_collapse_map[key] = LConstArray.new(nodes);
-				text = text.erase(res.x,res.y).insert(res.x,key);
+				text = text.erase(res.x, res.y).insert(res.x, key);
 
 		res = _find_recursion_positions(text);
 
@@ -668,59 +668,59 @@ func _collapse_recursion(text:String) -> String:
 ## - y = length of recursion.[br]
 ## - z = index of first ID.[br][br]
 ## Values will be -1 if didn't find its respective characters.
-func _find_recursion_positions(text:String) -> Vector3i:
+func _find_recursion_positions(text: String) -> Vector3i:
 	var rec_start := -1;
-	var type : String;
+	var type: String;
 	var id_start := -1;
 	for i in text.length():
 		var c := text[i];
 		if c == "#": id_start = i;
-		if c == "(" or c == "[": 
+		if c == "(" or c == "[":
 			rec_start = i;
 			type = c;
-			break;
-	if rec_start == -1: return Vector3i(-1,-1,-1);
+			break ;
+	if rec_start == -1: return Vector3i(-1, -1, -1);
 	# Find recursion ending symbol
 	var depth := 1;
 	var search_rec_idx := rec_start + 1;
 	if type == "(":
 		while search_rec_idx < text.length() and depth > 0:
 			var c := text[search_rec_idx];
-			if c  == '(': depth += 1;
-			elif c  == ')': depth -= 1;
+			if c == '(': depth += 1;
+			elif c == ')': depth -= 1;
 			search_rec_idx += 1;
 	elif type == "[":
 		while search_rec_idx < text.length() and depth > 0:
 			var c := text[search_rec_idx];
-			if c  == '[': depth += 1;
-			elif c  == ']': depth -= 1;
+			if c == '[': depth += 1;
+			elif c == ']': depth -= 1;
 			search_rec_idx += 1;
 	if depth > 0: # Bad grammar, open parenthesis should have closing pair
 		logger.err("Parse error, recursion symbol '%s' found but lacks its closing pair."%type);
-		return Vector3i(-1,-1,-1);
+		return Vector3i(-1, -1, -1);
 	
 	if id_start >= 0:
 		# Check if recursion belongs to the id (discarded if not)
-		var number := text.substr(id_start+1,rec_start-(id_start+1));
+		var number := text.substr(id_start + 1, rec_start - (id_start + 1));
 		if not number.is_valid_int():
 			id_start = -1; # Discard
 
 	var rec_len := search_rec_idx - rec_start;
-	return Vector3i(rec_start,rec_len,id_start);
+	return Vector3i(rec_start, rec_len, id_start);
 
 ## Collapses each operator found by priority order and from left to right.
-func _collapse_expr(text:String) -> String:
+func _collapse_expr(text: String) -> String:
 	# Operators in descendent order of priority.
 	var access := _rma.search(text);
 	while access:
 		var key := _make_node_id();
 		var start := access.get_start();
 		var end := access.get_end();
-		text = text.erase(start,end-start).insert(start,key);
+		text = text.erase(start, end - start).insert(start, key);
 		
 		var p := access.get_string("parent");
 		var m := access.get_string("member");
-		_collapse_map[key] = LDeReference.new(_collapse_map[p],_collapse_map[m],self);
+		_collapse_map[key] = LDeReference.new(_collapse_map[p], _collapse_map[m], self);
 		access = _rma.search(text);
 	
 	var unary := _runa.search(text);
@@ -728,7 +728,7 @@ func _collapse_expr(text:String) -> String:
 		var key := _make_node_id();
 		var val := unary.get_string();
 		var idx := unary.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 		
 		var op := unary.get_string("op");
 		var v1 := unary.get_string("v1");
@@ -745,15 +745,15 @@ func _collapse_expr(text:String) -> String:
 		var key := _make_node_id();
 		var val := mul.get_string();
 		var idx := mul.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 
 		var op := mul.get_string("op");
 		var v1 := mul.get_string("v1");
 		var v2 := mul.get_string("v2");
 		#if !op.is_empty():
 		match op:
-			"*": _collapse_map[key] = LMul.new(_collapse_map[v1],_collapse_map[v2]);
-			"/": _collapse_map[key] = LDiv.new(_collapse_map[v1],_collapse_map[v2]);
+			"*": _collapse_map[key] = LMul.new(_collapse_map[v1], _collapse_map[v2]);
+			"/": _collapse_map[key] = LDiv.new(_collapse_map[v1], _collapse_map[v2]);
 
 		mul = _rmul.search(text);
 	var add := _radd.search(text);
@@ -761,15 +761,15 @@ func _collapse_expr(text:String) -> String:
 		var key := _make_node_id();
 		var val := add.get_string();
 		var idx := add.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 
 		var op := add.get_string("op");
 		var v1 := add.get_string("v1");
 		var v2 := add.get_string("v2");
 		#if !op.is_empty():
 		match op:
-			"+": _collapse_map[key] = LAdd.new(_collapse_map[v1],_collapse_map[v2]);
-			"-":_collapse_map[key] = LSub.new(_collapse_map[v1],_collapse_map[v2]);
+			"+": _collapse_map[key] = LAdd.new(_collapse_map[v1], _collapse_map[v2]);
+			"-": _collapse_map[key] = LSub.new(_collapse_map[v1], _collapse_map[v2]);
 		add = _radd.search(text);
 	
 	var shift := _rshf.search(text);
@@ -777,15 +777,15 @@ func _collapse_expr(text:String) -> String:
 		var key := _make_node_id();
 		var val := shift.get_string();
 		var idx := shift.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 
 		var op := shift.get_string("op");
 		var v1 := shift.get_string("v1");
 		var v2 := shift.get_string("v2");
 		#if !op.is_empty(): 
 		match op:
-			"<<": _collapse_map[key] = LShiftL.new(_collapse_map[v1],_collapse_map[v2]);
-			">>": _collapse_map[key] = LShiftR.new(_collapse_map[v1],_collapse_map[v2]);
+			"<<": _collapse_map[key] = LShiftL.new(_collapse_map[v1], _collapse_map[v2]);
+			">>": _collapse_map[key] = LShiftR.new(_collapse_map[v1], _collapse_map[v2]);
 		shift = _rshf.search(text);
 		
 	var rel := _rrel.search(text);
@@ -793,17 +793,17 @@ func _collapse_expr(text:String) -> String:
 		var key := _make_node_id();
 		var val := rel.get_string();
 		var idx := rel.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 
 		var op := rel.get_string("op");
 		var v1 := rel.get_string("v1");
 		var v2 := rel.get_string("v2");
 		#if !op.is_empty(): 
 		match op:
-			">": _collapse_map[key] = LGT.new(_collapse_map[v1],_collapse_map[v2]);
-			"<": _collapse_map[key] = LLT.new(_collapse_map[v1],_collapse_map[v2]);
-			">=": _collapse_map[key] = LGE.new(_collapse_map[v1],_collapse_map[v2]);
-			"<=": _collapse_map[key] = LLE.new(_collapse_map[v1],_collapse_map[v2]);
+			">": _collapse_map[key] = LGT.new(_collapse_map[v1], _collapse_map[v2]);
+			"<": _collapse_map[key] = LLT.new(_collapse_map[v1], _collapse_map[v2]);
+			">=": _collapse_map[key] = LGE.new(_collapse_map[v1], _collapse_map[v2]);
+			"<=": _collapse_map[key] = LLE.new(_collapse_map[v1], _collapse_map[v2]);
 		rel = _rrel.search(text);
 		
 	var eq := _req.search(text);
@@ -811,15 +811,15 @@ func _collapse_expr(text:String) -> String:
 		var key := _make_node_id();
 		var val := eq.get_string();
 		var idx := eq.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 
 		var op := eq.get_string("op");
 		var v1 := eq.get_string("v1");
 		var v2 := eq.get_string("v2");
 		#if !op.is_empty(): 
 		match op:
-			"==": _collapse_map[key] = LEQ.new(_collapse_map[v1],_collapse_map[v2]);
-			"!=": _collapse_map[key] = LNEQ.new(_collapse_map[v1],_collapse_map[v2]);
+			"==": _collapse_map[key] = LEQ.new(_collapse_map[v1], _collapse_map[v2]);
+			"!=": _collapse_map[key] = LNEQ.new(_collapse_map[v1], _collapse_map[v2]);
 		eq = _req.search(text);
 		
 	var and_ := _rand.search(text);
@@ -827,12 +827,12 @@ func _collapse_expr(text:String) -> String:
 		var key := _make_node_id();
 		var val := and_.get_string();
 		var idx := and_.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 
 		var v1 := and_.get_string("v1");
 		var v2 := and_.get_string("v2");
 		#if !v2.is_empty():
-		_collapse_map[key] = LAnd.new(_collapse_map[v1],_collapse_map[v2]);
+		_collapse_map[key] = LAnd.new(_collapse_map[v1], _collapse_map[v2]);
 		and_ = _rand.search(text);
 		
 	var xor := _rxor.search(text);
@@ -840,12 +840,12 @@ func _collapse_expr(text:String) -> String:
 		var key := _make_node_id();
 		var val := xor.get_string();
 		var idx := xor.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 
 		var v1 := xor.get_string("v1");
 		var v2 := xor.get_string("v2");
 		#if !v2.is_empty():
-		_collapse_map[key] = LXor.new(_collapse_map[v1],_collapse_map[v2]);
+		_collapse_map[key] = LXor.new(_collapse_map[v1], _collapse_map[v2]);
 		xor = _rxor.search(text);
 	
 	var or_ := _ror.search(text);
@@ -853,12 +853,12 @@ func _collapse_expr(text:String) -> String:
 		var key := _make_node_id();
 		var val := or_.get_string();
 		var idx := or_.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 
 		var v1 := or_.get_string("v1");
 		var v2 := or_.get_string("v2");
 		#if !v2.is_empty():
-		_collapse_map[key] = LOr.new(_collapse_map[v1],_collapse_map[v2]);
+		_collapse_map[key] = LOr.new(_collapse_map[v1], _collapse_map[v2]);
 		or_ = _ror.search(text);
 		
 	var andl := _randl.search(text);
@@ -866,12 +866,12 @@ func _collapse_expr(text:String) -> String:
 		var key := _make_node_id();
 		var val := andl.get_string();
 		var idx := andl.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 
 		var v1 := andl.get_string("v1");
 		var v2 := andl.get_string("v2");
 		#if !v2.is_empty():
-		_collapse_map[key] = LAndL.new(_collapse_map[v1],_collapse_map[v2]);
+		_collapse_map[key] = LAndL.new(_collapse_map[v1], _collapse_map[v2]);
 		andl = _randl.search(text);
 		
 	var orl := _rorl.search(text);
@@ -879,26 +879,26 @@ func _collapse_expr(text:String) -> String:
 		var key := _make_node_id();
 		var val := orl.get_string();
 		var idx := orl.get_start();
-		text = text.erase(idx,val.length()).insert(idx,key);
+		text = text.erase(idx, val.length()).insert(idx, key);
 
 		var v1 := orl.get_string("v1");
 		var v2 := orl.get_string("v2");
 		#if !v2.is_empty():
-		_collapse_map[key] = LOrL.new(_collapse_map[v1],_collapse_map[v2]);
+		_collapse_map[key] = LOrL.new(_collapse_map[v1], _collapse_map[v2]);
 		orl = _rorl.search(text);
 	return text;
 
 ## Set root node and join base instructions horizontally
-func _join_instructions(text:String) -> void:
-	var instr_ids := text.strip_edges().split("\n",false);
+func _join_instructions(text: String) -> void:
+	var instr_ids := text.strip_edges().split("\n", false);
 	
 	if instr_ids.size() > 0:
-		root_node = _collapse_map.get(instr_ids[0],null) as LInstr;
+		root_node = _collapse_map.get(instr_ids[0], null) as LInstr;
 	var prev_node := root_node;
 	
-	for i in range(1,instr_ids.size()):
+	for i in range(1, instr_ids.size()):
 		var id := instr_ids[i];
-		var node : LangNode =_collapse_map.get(id,null);
+		var node: LangNode = _collapse_map.get(id, null);
 		if node == null:
 			logger.err("Bad error. The following part could not be parsed at all: %s"%id);
 		if node is LInstr:
