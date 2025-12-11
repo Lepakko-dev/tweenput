@@ -10,7 +10,8 @@ config_version=5
 
 [application]
 
-config/name="Making Tweembly"
+config/name="Tweenput Plugin"
+config/description="A plugin for Godot that unifies Tweens and QTEs in a text-based language."
 run/main_scene="uid://dunt68n00nysa"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
