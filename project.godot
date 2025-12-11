@@ -15,3 +15,7 @@ config/description="A plugin for Godot that unifies Tweens and QTEs in a text-ba
 run/main_scene="uid://dunt68n00nysa"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/tweenput/plugin.cfg")
