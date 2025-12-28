@@ -15,6 +15,6 @@ func _refresh() -> void:
 	tout.text = interpreter.process_code(tin.text);
 
 func test():
-	interpreter.parser.variables["list"] = ["ui_left", "ui_right", "ui_left", "ui_right", "ui_right"];
-	interpreter.parser.variables["target"] = $Target;
+	interpreter.set_variable("list", ["ui_left", "ui_right", "ui_left", "ui_right", "ui_right"]);
+	interpreter.set_variable("target", $Target);
 	interpreter.run();

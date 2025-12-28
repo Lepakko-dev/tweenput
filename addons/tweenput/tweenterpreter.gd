@@ -153,6 +153,10 @@ func run():
 	return ;
 
 
+func set_variable(var_name:String,value:Variant)->void:
+	parser.variables[var_name] = value;
+
+
 func _init() -> void:
 	twc = TimeWindowController.new();
 	logger = TweenputLogger.new();

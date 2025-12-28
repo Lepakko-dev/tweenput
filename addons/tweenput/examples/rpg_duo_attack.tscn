@@ -1,0 +1,93 @@
+[gd_scene load_steps=13 format=3 uid="uid://bvam6hitjjdfj"]
+
+[ext_resource type="Script" uid="uid://did670cx2x8af" path="res://addons/tweenput/examples/rpg_duo_attack.gd" id="1_iggdv"]
+[ext_resource type="Script" uid="uid://bsihlb1wnkfjg" path="res://addons/tweenput/tweenterpreter.gd" id="1_xe45g"]
+[ext_resource type="Script" uid="uid://co5sepgqjdyyo" path="res://addons/tweenput/tweenput_parser.gd" id="2_iggdv"]
+
+[sub_resource type="Gradient" id="Gradient_g31rp"]
+offsets = PackedFloat32Array(0.5513627)
+colors = PackedColorArray(1, 0, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_ccxss"]
+gradient = SubResource("Gradient_g31rp")
+width = 32
+
+[sub_resource type="Curve2D" id="Curve2D_iggdv"]
+_data = {
+"points": PackedVector2Array(0, 0, 0, 0, 0, 0, -17.265238, 0.14508593, 17.265238, -0.14508593, 27, -71, 0, 0, 17.265238, -0.14508593, 51, 10)
+}
+point_count = 3
+
+[sub_resource type="Gradient" id="Gradient_8thir"]
+offsets = PackedFloat32Array(0.5513627)
+colors = PackedColorArray(1, 0.895, 0.100000024, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_jrpq2"]
+gradient = SubResource("Gradient_8thir")
+width = 48
+height = 48
+
+[sub_resource type="Gradient" id="Gradient_iggdv"]
+offsets = PackedFloat32Array(0.5513627)
+colors = PackedColorArray(0.41666663, 1, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_lboxd"]
+gradient = SubResource("Gradient_iggdv")
+width = 32
+
+[sub_resource type="Gradient" id="Gradient_72kph"]
+offsets = PackedFloat32Array(0.5513627)
+colors = PackedColorArray(0, 0, 0, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_726sb"]
+gradient = SubResource("Gradient_72kph")
+
+[node name="Rpg Duo Attack" type="Node2D"]
+script = ExtResource("1_iggdv")
+
+[node name="Tweenterpreter" type="Node" parent="."]
+script = ExtResource("1_xe45g")
+metadata/_custom_type_script = "uid://bsihlb1wnkfjg"
+
+[node name="TweenputParser" type="Node" parent="Tweenterpreter"]
+script = ExtResource("2_iggdv")
+instructions = Dictionary[String, Callable]({
+"CALL": Callable(),
+"EMIT": Callable(),
+"END": Callable(),
+"JMP": Callable(),
+"LINK": Callable(),
+"QTE": Callable(),
+"RET": Callable(),
+"SET": Callable(),
+"STOP": Callable(),
+"SWAP": Callable(),
+"UNLINK": Callable(),
+"WAIT": Callable(),
+"WINPUT": Callable(),
+"WQTE": Callable()
+})
+metadata/_custom_type_script = "uid://co5sepgqjdyyo"
+
+[node name="Character1" type="Sprite2D" parent="."]
+position = Vector2(168, 192)
+texture = SubResource("GradientTexture2D_ccxss")
+
+[node name="Path2D" type="Path2D" parent="Character1"]
+curve = SubResource("Curve2D_iggdv")
+
+[node name="PathFollow2D" type="PathFollow2D" parent="Character1/Path2D"]
+rotates = false
+loop = false
+
+[node name="Ball" type="Sprite2D" parent="Character1/Path2D/PathFollow2D"]
+unique_name_in_owner = true
+texture = SubResource("GradientTexture2D_jrpq2")
+
+[node name="Character2" type="Sprite2D" parent="."]
+position = Vector2(210, 489)
+texture = SubResource("GradientTexture2D_lboxd")
+
+[node name="Enemy" type="Sprite2D" parent="."]
+position = Vector2(910, 321)
+texture = SubResource("GradientTexture2D_726sb")
