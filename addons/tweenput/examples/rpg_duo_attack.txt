@@ -63,21 +63,21 @@ set_ball {
 }
 
 t_kick_1{
-    trans 6
-    ease 1
+    trans @TRANS_ELASTIC
+    ease @EASE_OUT
     property ally1, "scale", Vector2(1,1), 0.4
 }
 t_kick_2{
-    trans 6
-    ease 1
+    trans @TRANS_ELASTIC
+    ease @EASE_OUT
     property ally2, "scale", Vector2(1,1), 0.4
 }
 
 ball_to_enemy{
     parallel 1
     property ball, "global_position", enemy.global_position, interval
-    ease 1
-    trans 8
+    ease @EASE_OUT
+    trans @TRANS_CIRC
     property ball, "scale", Vector(1.5,0.5), interval
     property ball, "global_rotation_degrees", enemy.global_position.angle_to_point(ball.global_position), interval
     parallel 0
@@ -87,15 +87,15 @@ ball_to_enemy{
 ball_to_ally{
     parallel 1
     property ball, "global_position"; currAlly.global_position, interval
-    ease 1
-    trans 9
+    ease @EASE_OUT
+    trans @TRANS_BOUNCE
     property ball, "scale", Vector(1,1), interval
     property ball, "global_rotation_degrees", currAlly.global_position.angle_to_point(ball.global_position), interval
     parallel 0
 }
 
 t_fail{
-    ease 1
-    trans 2
+    ease @EASE_OUT
+    trans @TRANS_QUINT
     property currAlly, "global_rotation_degrees", -90, 0.2
 }

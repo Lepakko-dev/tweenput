@@ -7,6 +7,7 @@ class_name TweenputParser
 
 # Most lookarounds are there to avoid conflict with our language collapser or grammar rules.
 const STRING = r'"(?<val>(?:[^"\n]|(?:\\"))*)"'
+const MACRO = r'@(?<val>[A-Z_0-9]+)'
 # Any form of number
 const CONST = r"(?<![A-Za-z_#]{1,9}\d{0,9})(?:(?<bin>0b(?:[0-1])+)|(?<hex>0x(?:\d|[a-f])+)|(?<dec>\d+(?:\.\d*)?))"
 const ID = r"(?<obj>[a-zA-Z_]\w*)"
@@ -44,6 +45,7 @@ const COMMENT = r'(?<!(\n|^)[^"]{0,99}"[^"]{0,99})#[^\n]*'
 
 var _rconst := RegEx.create_from_string(CONST);
 var _rstring := RegEx.create_from_string(STRING);
+var _rmacro := RegEx.create_from_string(MACRO);
 var _rid := RegEx.create_from_string(ID);
 var _rma := RegEx.create_from_string(MEMBR_ACCESS_EXPR);
 
@@ -447,6 +449,7 @@ func parse(text: String) -> String:
 	
 	# Main parsing steps (order is crucial)
 	text = _remove_comments(text);
+	text = _apply_macros(text);
 	text = _collapse_literals(text); # (numbers and strings)
 	text = _collapse_tween_defs(text);
 	text = _collapse_instr(text);
@@ -463,6 +466,17 @@ func _remove_comments(text: String) -> String:
 		var l := comment_match.get_end() - i;
 		text = text.erase(i, l);
 		comment_match = _rcomment.search(text, i);
+	return text;
+
+func _apply_macros(text: String) -> String:
+	var macro_match := _rmacro.search(text);
+	while macro_match:
+		var val := macro_match.get_string("val");
+		var idx := macro_match.get_start();
+		var full := macro_match.get_string();
+		var macro_result := TweenputHelper.get_macro(val);
+		text = text.erase(idx, full.length()).insert(idx, macro_result);
+		macro_match = _rmacro.search(text);
 	return text;
 
 func _collapse_literals(text: String) -> String:

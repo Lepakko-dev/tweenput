@@ -14,3 +14,4 @@ func _ready() -> void:
 	tweenterpreter.set_variable("ball",%Ball);
 	tweenterpreter.set_variable("path_ini_ball",$Character1/Path2D/PathFollow2D);
 	tweenterpreter.run()
+	

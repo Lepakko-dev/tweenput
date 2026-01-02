@@ -293,14 +293,6 @@ static func _pv4_arr(ref: PackedVector4Array, idx: int) -> Vector4: return ref.g
 static func _pv4_arr_a(ref: PackedVector4Array, idx: int, val: Vector4): ref.set(idx, val);
 #endregion
 
-static func construct(type: String) -> Callable:
-	return constructors.get(type, Callable());
-
-static func reflect(obj: Variant, method: String) -> Callable:
-	var t := typeof(obj);
-	var dir: Dictionary = variants.get(t);
-	return dir.get(method, Callable());
-
 static var variants: Array[Dictionary] = [ # All 38 types of Variant ordered by Variant.TYPE
 	{}, {}, {}, {}, string_methods,
 	vector2_methods, vector2i_methods, {}, {}, vector3_methods,
@@ -311,3 +303,42 @@ static var variants: Array[Dictionary] = [ # All 38 types of Variant ordered by 
 	int32_arr_methods, int64_arr_methods, float32_arr_methods, float64_arr_methods, string_arr_methods,
 	vector2_arr_methods, vector3_arr_methods, color_arr_methods, vector4_arr_methods
 ]
+
+#region MACROS
+static var macros: Dictionary[String, String] = {
+	"TWEEN_PROCESS_PHYSICS": "0",
+	"TWEEN_PROCESS_IDLE": "1",
+	
+	"TWEEN_PAUSE_BOUND": "0",
+	"TWEEN_PAUSE_STOP": "1",
+	
+	"TRANS_LINEAR": "0",
+	"TRANS_SINE": "1",
+	"TRANS_QUINT": "2",
+	"TRANS_QUART": "3",
+	"TRANS_QUAD": "4",
+	"TRANS_EXPO": "5",
+	"TRANS_ELASTIC": "6",
+	"TRANS_CUBIC": "7",
+	"TRANS_CIRC": "8",
+	"TRANS_BOUNCE": "9",
+	"TRANS_BACK": "10",
+	"TRANS_SPRING": "11",
+
+	"EASE_IN": "0",
+	"EASE_OUT": "1",
+	"EASE_IN_OUT": "2",
+	"EASE_OUT_IN": "3",
+};
+#endregion
+
+static func construct(type: String) -> Callable:
+	return constructors.get(type, Callable());
+
+static func reflect(obj: Variant, method: String) -> Callable:
+	var t := typeof(obj);
+	var dir: Dictionary = variants.get(t);
+	return dir.get(method, Callable());
+
+static func get_macro(macro: String) -> String:
+	return macros.get(macro, "");

@@ -24,7 +24,8 @@ func use_label(target: RichTextLabel = null) -> void:
 
 
 func clear_label() -> void:
-	_label.clear();
+	if _label:
+		_label.clear();
 
 
 func err(msg: String) -> void:

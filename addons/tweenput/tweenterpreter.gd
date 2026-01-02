@@ -153,7 +153,7 @@ func run():
 	return ;
 
 
-func set_variable(var_name:String,value:Variant)->void:
+func set_variable(var_name: String, value: Variant) -> void:
 	parser.variables[var_name] = value;
 
 
@@ -224,7 +224,9 @@ func _run_async(label: String):
 	var ctx := _ctx_list[id];
 	ctx.reset();
 	#logger.p_log("Starting execution of coroutine from label '%s', with id %d"%[label,id]);
-	while node: node = await _step(node, ctx);
+	while node:
+		_update_time();
+		node = await _step(node, ctx);
 	_release_id_to_pool(id);
 	return ;
 
@@ -248,6 +250,10 @@ func _step(node: TweenputParser.LInstr, ctx: Context) -> TweenputParser.LInstr:
 		next_node = null;
 	ctx.flags = 0;
 	return next_node;
+
+## Sets the value of a parser variable called "time" with the elapsed seconds since the start of the Tweenput.
+func _update_time():
+	parser.variables["time"] = float(Time.get_ticks_usec() - _tw_start) / 1000000.0;
 
 #region Instructions
 ## Implementation of the instruction set allowed in the Tweenput code.
