@@ -13,22 +13,22 @@ const CONST = r"(?<![A-Za-z_#]{1,9}\d{0,9})(?:(?<bin>0b(?:[0-1])+)|(?<hex>0x(?:\
 const ID = r"(?<obj>[a-zA-Z_]\w*)"
 
 const MEMBR_ACCESS_EXPR = r"(?<parent>#\d+)\.(?<member>#\d+)";
-const UNARY_EXPR = r"(?<=-|\D|^)" + SEP + r"(?<op>\+|-|~|!)+" + SEP + r"(?<v1>#\d+)"
-const MUL_EXPR = r"(?<v1>#\d+)" + SEP + r"(?<op>\*|\/)" + SEP + r"(?<v2>#\d+)"
-const ADD_EXPR = r"(?<v1>#\d+)" + SEP + r"(?<op>\+|-)" + SEP + r"(?<v2>#\d+)"
-const SHIFT_EXPR = r"(?<v1>#\d+)" + SEP + r"(?<op>>>|<<)" + SEP + r"(?<v2>#\d+)"
+const UNARY_EXPR = r"(?<=\+|-|~|!|\D|^)(?<op>\+|-|~|!)(?<v1>#\d+)"
+const MUL_EXPR = r"(?<v1>#\d+)(?<op>\*|\/)(?<v2>#\d+)"
+const ADD_EXPR = r"(?<v1>#\d+)(?<op>\+|-)(?<v2>#\d+)"
+const SHIFT_EXPR = r"(?<v1>#\d+)(?<op>>>|<<)(?<v2>#\d+)"
 
-const REL_EXPR = r"(?<v1>#\d+)" + SEP + r"(?<op>>|<|>=|<=)" + SEP + r"(?<v2>#\d+)"
-const EQ_EXPR = r"(?<v1>#\d+)" + SEP + r"(?<op>==|!=)" + SEP + r"(?<v2>#\d+)"
+const REL_EXPR = r"(?<v1>#\d+)(?<op>>|<|>=|<=)(?<v2>#\d+)"
+const EQ_EXPR = r"(?<v1>#\d+)(?<op>==|!=)(?<v2>#\d+)"
 
-const AND_EXPR = r"(?<v1>#\d+)" + SEP + r"&" + SEP + r"(?<v2>#\d+)"
-const XOR_EXPR = r"(?<v1>#\d+)" + SEP + r"\^" + SEP + r"(?<v2>#\d+)"
-const OR_EXPR = r"(?<v1>#\d+)" + SEP + r"\|" + SEP + r"(?<v2>#\d+)"
+const AND_EXPR = r"(?<v1>#\d+)&(?<v2>#\d+)"
+const XOR_EXPR = r"(?<v1>#\d+)\^(?<v2>#\d+)"
+const OR_EXPR = r"(?<v1>#\d+)\|(?<v2>#\d+)"
 
-const LOGIC_AND_EXPR = r"(?<v1>#\d+)" + SEP + r"&&" + SEP + r"(?<v2>#\d+)"
-const LOGIC_OR_EXPR = r"(?<v1>#\d+)" + SEP + r"\|\|" + SEP + r"(?<v2>#\d+)"
+const LOGIC_AND_EXPR = r"(?<v1>#\d+)&&(?<v2>#\d+)"
+const LOGIC_OR_EXPR = r"(?<v1>#\d+)\|\|(?<v2>#\d+)"
 
-const INSTR = LOOKBREAK + r"(?<instr>[a-zA-Z_]\w*)" + SEP + r"(?:" + H + r"(?<params>[^\n;:{]+))?(?:[\n;]+|$)"
+const INSTR = LOOKBREAK + r"(?<instr>[a-zA-Z_]\w*)(?:" + H + r"(?<params>[^\n;:{]+)?)?(?:[\n;]|$)"
 const LABEL = LOOKBREAK + r"(?<label>[a-zA-Z_]\w*):(?:[^\S]*)(?<node>#\d+)"
 const TWEEN_DEF = LOOKBREAK + r"(" + ID + r"[^\S\n]*\{(?<list>(?:[\n;]*\s*(?:[^\n;}]+)?)*)?\})";
 #const TWEEN_EXE =	LOOKBREAK+r"(?<tween>[a-zA-Z_]\w*)"
@@ -37,7 +37,7 @@ const TWEEN_DEF = LOOKBREAK + r"(" + ID + r"[^\S\n]*\{(?<list>(?:[\n;]*\s*(?:[^\
 #const S = 			"^"+LINE+"("+BREAK+LINE+")*"+BREAK+"?$"
 
 const H = r"(?:[^\S\n])"
-const SEP = r"(?:[^\S\n]*)"
+const SEP = r"(?:[^\S\n]+)"
 #const BREAK =	r"(?:(?:\n|;|^)\s*)"
 const LOOKBREAK = r"(?<=(?:\n|;|^)\s{0,99})"
 # Huge lookbehind to not take comments inside string literals
@@ -47,8 +47,9 @@ var _rconst := RegEx.create_from_string(CONST);
 var _rstring := RegEx.create_from_string(STRING);
 var _rmacro := RegEx.create_from_string(MACRO);
 var _rid := RegEx.create_from_string(ID);
-var _rma := RegEx.create_from_string(MEMBR_ACCESS_EXPR);
+var _rsep := RegEx.create_from_string(SEP);
 
+var _rma := RegEx.create_from_string(MEMBR_ACCESS_EXPR);
 var _runa := RegEx.create_from_string(UNARY_EXPR);
 var _rmul := RegEx.create_from_string(MUL_EXPR);
 var _radd := RegEx.create_from_string(ADD_EXPR);
@@ -445,7 +446,7 @@ func parse(text: String) -> String:
 	_collapse_map.clear();
 	_counter = 0;
 	
-	if not text.ends_with("\n"): text += "\n";
+	#if not text.ends_with("\n"): text += "\n";
 	
 	# Main parsing steps (order is crucial)
 	text = _remove_comments(text);
@@ -506,6 +507,16 @@ func _collapse_literals(text: String) -> String:
 		var idx := const_.get_start();
 		text = text.erase(idx, val.length()).insert(idx, key);
 		const_ = _rconst.search(text);
+	return text;
+
+## Removes all non-newline space related characters
+func _remove_spaces(text: String) -> String:
+	var sep := _rsep.search(text);
+	while sep:
+		var idx := sep.get_start();
+		var full := sep.get_string();
+		text = text.erase(idx, full.length());
+		sep = _rsep.search(text);
 	return text;
 
 func _collapse_labels(text: String) -> String:
@@ -579,6 +590,7 @@ func _collapse_instr(text: String) -> String:
 func _collapse_params(text: String) -> Array[LangNode]:
 	if text.is_empty(): return [];
 	text = _collapse_identifiers(text);
+	text = _remove_spaces(text);
 	text = _collapse_recursion(text);
 	var nodes: Array[LangNode];
 	for param in text.split(','):

@@ -47,6 +47,7 @@ script = ExtResource("1_iggdv")
 
 [node name="Tweenterpreter" type="Node" parent="."]
 script = ExtResource("1_xe45g")
+debug = true
 metadata/_custom_type_script = "uid://bsihlb1wnkfjg"
 
 [node name="TweenputParser" type="Node" parent="Tweenterpreter"]

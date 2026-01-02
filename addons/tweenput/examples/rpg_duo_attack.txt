@@ -3,60 +3,64 @@
 # Initialization
 SET ball.scale, Vector2(0,0)
 SET path_ini_ball.progress_ratio, 0
-WAIT set_ball
+WAIT "set_ball"
 
 # Maybe add a cue to let the player know "spacebar" needs to be pressed.
 WINPUT "ui_accept"
 
-SINPUT "ui_up","action_up"
-SINPUT "ui_down","action_down"
-LINK "action_up", "kickA"
-LINK "action_down", "kickB"
+SET A, "ui_down"
+SET B, "ui_up"
+SINPUT B,"action_up"
+SINPUT A,"action_down"
+LINK "action_up", "kickB"
+LINK "action_down", "kickA"
 EMIT "action_up"
 
-set maxCounter, 20
+set maxCounter, 10.0
 SET counter, maxCounter
-SET interval, 1
-SET minInterval, 0.4
+SET iniInterval, 0.5
+SET interval, iniInterval
+SET minInterval, 0.15
 SET currAlly, ally2
 set auxAlly, ally1
 
 # Main loop
 loop:
-WAIT ball_to_enemy
+WAIT "ball_to_enemy"
 CALL hit
 ball_to_ally
-QTE time+interval, 0.2*interval, interval, 0.1*interval, ["ui_down"], [], 0
+QTE time+interval, 0.2*interval, interval, 0.1*interval, [A], [B], 0
 WQTE 0
 JMP "fail", res_qte[0] != 1
 SWAP currAlly, auxAlly
+SWAP A, B
 SET counter, counter-1
 set t, counter/maxCounter
-SET interval, (1-t)*minInterval + t*interval # LERP
-JMP "loop", counter < 1
+SET interval, t*iniInterval + (1-t)*minInterval # LERP
+JMP "loop", counter >= 1
 END
 
 
 # Other routines
-kickA:
+kickB:
 SET ally1.scale, Vector2(2,1);
-WAIT t_kick_1
+WAIT "t_kick_1"
 END
 
-kickB:
+kickA:
 SET ally2.scale, Vector2(2,1);
-WAIT t_kick_2
+WAIT "t_kick_2"
 END
 
 fail:
-WAIT t_fail
+WAIT "t_fail"
 END
 
 
 # Tweens
 set_ball {
     parallel 1
-    property path_ini_ball, "progress_ratio", 0.4
+    property path_ini_ball, "progress_ratio", 1, 0.4
     property ball, "scale", Vector2(1,1), 0.4
     property ball, "global_rotation_degrees", 180, 0.4
     parallel 0
@@ -65,37 +69,39 @@ set_ball {
 t_kick_1{
     trans @TRANS_ELASTIC
     ease @EASE_OUT
-    property ally1, "scale", Vector2(1,1), 0.4
+    property ally1, "scale", Vector2(1,1), 0.6
 }
 t_kick_2{
     trans @TRANS_ELASTIC
     ease @EASE_OUT
-    property ally2, "scale", Vector2(1,1), 0.4
+    property ally2, "scale", Vector2(1,1), 0.6
 }
 
 ball_to_enemy{
     parallel 1
     property ball, "global_position", enemy.global_position, interval
+    property ball, "global_rotation", enemy.global_position.angle_to_point(ball.global_position), 0
     ease @EASE_OUT
     trans @TRANS_CIRC
-    property ball, "scale", Vector(1.5,0.5), interval
-    property ball, "global_rotation_degrees", enemy.global_position.angle_to_point(ball.global_position), interval
+    property ball, "scale", Vector2(1.5,0.5), interval
     parallel 0
 }
 
 # Requires currAlly to be a variable of type Node2D
 ball_to_ally{
     parallel 1
-    property ball, "global_position"; currAlly.global_position, interval
+    property ball, "global_position", currAlly.global_position, interval
+    property ball, "global_rotation", currAlly.global_position.angle_to_point(ball.global_position), 0
     ease @EASE_OUT
     trans @TRANS_BOUNCE
-    property ball, "scale", Vector(1,1), interval
-    property ball, "global_rotation_degrees", currAlly.global_position.angle_to_point(ball.global_position), interval
+    property ball, "scale", Vector2(1,1), interval
     parallel 0
 }
 
 t_fail{
     ease @EASE_OUT
     trans @TRANS_QUINT
+    parallel 1
     property currAlly, "global_rotation_degrees", -90, 0.2
+    property ball, "global_position", ball.global_position+Vector2(0,200), 0.2
 }

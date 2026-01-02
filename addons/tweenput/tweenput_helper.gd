@@ -98,9 +98,11 @@ static func _string_arr_a(ref: String, idx: int, value: String): ref[idx] = valu
 #endregion
 #region Vector2
 static var vector2_methods: Dictionary[String, Callable] = {
+	"angle_to_point": _vec2_angle_to_point,
 	"[]": _vec2_arr,
 	"[]=": _vec2_arr_a,
 };
+static func _vec2_angle_to_point(ref: Vector2, to: Vector2) -> float: return ref.angle_to_point(to);
 static func _vec2_arr(ref: Vector2, idx: int) -> float: return ref[idx];
 static func _vec2_arr_a(ref: Vector2, idx: int, val: float): ref[idx] = val;
 #endregion

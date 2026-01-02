@@ -1,0 +1,183 @@
+[gd_scene load_steps=5 format=3 uid="uid://dunt68n00nysa"]
+
+[ext_resource type="Script" uid="uid://bqlxodq8jt0vb" path="res://tweenput_test.gd" id="1_sy5k4"]
+[ext_resource type="Script" uid="uid://bsihlb1wnkfjg" path="res://addons/tweenput/tweenterpreter.gd" id="2_j2q8x"]
+[ext_resource type="Script" uid="uid://co5sepgqjdyyo" path="res://addons/tweenput/tweenput_parser.gd" id="3_112p8"]
+[ext_resource type="Texture2D" uid="uid://2gjjcw6bd5bg" path="res://icon.svg" id="4_e2u21"]
+
+[node name="Node" type="Node"]
+script = ExtResource("1_sy5k4")
+
+[node name="TIn" type="TextEdit" parent="."]
+anchors_preset = -1
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_bottom = -50.0
+grow_vertical = 2
+text = "# rpg_duo_attack.twn
+
+# Initialization
+SET ball.scale, Vector2(0,0)
+SET path_ini_ball.progress_ratio, 0
+WAIT set_ball
+
+# Maybe add a cue to let the player know \"spacebar\" needs to be pressed.
+WINPUT \"ui_accept\"
+
+SINPUT \"ui_up\",\"action_up\"
+SINPUT \"ui_down\",\"action_down\"
+LINK \"action_up\", \"kickA\"
+LINK \"action_down\", \"kickB\"
+EMIT \"action_up\"
+
+set maxCounter, 20
+SET counter, maxCounter
+SET iniInterval, 1
+SET interval, iniInterval
+SET minInterval, 0.4
+SET currAlly, ally2
+set auxAlly, ally1
+
+# Main loop
+loop:
+WAIT ball_to_enemy
+CALL hit
+ball_to_ally
+QTE time+interval, 0.2*interval, interval, 0.1*interval, [\"ui_down\"], [], 0
+WQTE 0
+JMP \"fail\", res_qte[0] != 1
+SWAP currAlly, auxAlly
+SET counter, counter-1
+set t, counter/maxCounter
+SET interval, (1-t)*minInterval + t*iniInterval # LERP
+JMP \"loop\", counter < 1
+END
+
+
+# Other routines
+kickA:
+SET ally1.scale, Vector2(2,1);
+WAIT t_kick_1
+END
+
+kickB:
+SET ally2.scale, Vector2(2,1);
+WAIT t_kick_2
+END
+
+fail:
+WAIT t_fail
+END
+
+
+# Tweens
+set_ball {
+    parallel 1
+    property path_ini_ball, \"progress_ratio\", 0.4
+    property ball, \"scale\", Vector2(1,1), 0.4
+    property ball, \"global_rotation_degrees\", 180, 0.4
+    parallel 0
+}
+
+t_kick_1{
+    trans @TRANS_ELASTIC
+    ease @EASE_OUT
+    property ally1, \"scale\", Vector2(1,1), 0.4
+}
+t_kick_2{
+    trans @TRANS_ELASTIC
+    ease @EASE_OUT
+    property ally2, \"scale\", Vector2(1,1), 0.4
+}
+
+ball_to_enemy{
+    parallel 1
+    property ball, \"global_position\", enemy.global_position, interval
+    ease @EASE_OUT
+    trans @TRANS_CIRC
+    property ball, \"scale\", Vector(1.5,0.5), interval
+    property ball, \"global_rotation_degrees\", enemy.global_position.angle_to_point(ball.global_position), interval
+    parallel 0
+}
+
+# Requires currAlly to be a variable of type Node2D
+ball_to_ally{
+    parallel 1
+    property ball, \"global_position\"; currAlly.global_position, interval
+    ease @EASE_OUT
+    trans @TRANS_BOUNCE
+    property ball, \"scale\", Vector(1,1), interval
+    property ball, \"global_rotation_degrees\", currAlly.global_position.angle_to_point(ball.global_position), interval
+    parallel 0
+}
+
+t_fail{
+    ease @EASE_OUT
+    trans @TRANS_QUINT
+    property currAlly, \"global_rotation_degrees\", -90, 0.2
+}"
+
+[node name="TOut" type="TextEdit" parent="."]
+anchors_preset = -1
+anchor_left = 0.5
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_bottom = -50.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="RichTextLabel" type="RichTextLabel" parent="."]
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 50.0
+offset_top = -50.0
+offset_right = -50.0
+grow_horizontal = 2
+grow_vertical = 0
+bbcode_enabled = true
+text = "Errors here"
+vertical_alignment = 1
+
+[node name="Button" type="Button" parent="."]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 5.0
+offset_top = -45.0
+offset_right = 45.0
+offset_bottom = -5.0
+grow_vertical = 0
+theme_override_font_sizes/font_size = 14
+text = "RUN"
+
+[node name="Tweenterpreter" type="Node" parent="."]
+script = ExtResource("2_j2q8x")
+debug = true
+metadata/_custom_type_script = "uid://bsihlb1wnkfjg"
+
+[node name="TweenputParser" type="Node" parent="Tweenterpreter"]
+script = ExtResource("3_112p8")
+instructions = Dictionary[String, Callable]({
+"CALL": Callable(),
+"EMIT": Callable(),
+"END": Callable(),
+"JMP": Callable(),
+"LINK": Callable(),
+"QTE": Callable(),
+"RET": Callable(),
+"SET": Callable(),
+"SINPUT": Callable(),
+"STOP": Callable(),
+"SWAP": Callable(),
+"UNLINK": Callable(),
+"WAIT": Callable(),
+"WINPUT": Callable(),
+"WQTE": Callable()
+})
+metadata/_custom_type_script = "uid://co5sepgqjdyyo"
+
+[node name="Target" type="Sprite2D" parent="."]
+position = Vector2(870, 303)
+texture = ExtResource("4_e2u21")

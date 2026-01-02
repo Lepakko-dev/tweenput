@@ -44,7 +44,7 @@ class Context:
 var twc: TimeWindowController;
 
 ## Indicates whether the [TimeWindowController] is active.
-var _processing_tw: bool;
+var _processing_input: bool;
 
 ## Relative timestamp for the 0 seconds mark of the [TimeWindowController].
 var _tw_start: int;
@@ -88,9 +88,10 @@ var _id_pool: Array[int];
 ## (used by the main routine to avoid dangling coroutines)
 signal _coroutine_finished;
 
+var timeout_waiting_list: Array[SceneTreeTimer];
 #endregion
 
-#region Tweens and Input waiting variables
+#region Tweens and Input variables
 ## Maps the instance id of each tween being waited.
 var _current_tweens_waited: Dictionary[int, Tween];
 
@@ -103,6 +104,8 @@ var _waiting_actions_release: Array[String];
 ## Emitted when an input (this interpreter is waiting for) has been pressed or released.
 signal _input_found;
 
+var _pressed_actions_to_signals: Dictionary[String, Signal];
+var _released_actions_to_signals: Dictionary[String, Signal];
 #endregion
 
 
@@ -123,32 +126,21 @@ func run():
 		return ;
 	
 	logger.p_log("--- Starting ---");
-	for s in _internal_signals: remove_user_signal(s);
-	_internal_signals.clear();
-	
-	_set_tw_process(true);
-
-	_linked_coroutines.clear();
-	_id_pool.clear();
-	for i in max_active_coroutines:
-		_id_pool.append(i);
-	
-	_ctx_list.resize(max_active_coroutines + 1);
-	_ctx_list.fill(Context.new());
+	_pre_execution_tasks();
+	_set_input_processing(true);
 	
 	var node := parser.root_node;
 	var ctx := _ctx_list[max_active_coroutines];
-	while node: node = await _step(node, ctx);
+	while node:
+		_update_time();
+		node = await _step(node, ctx);
 	logger.p_log("--- Stoping ---");
 	
-	# Warn all coroutines and wait them to finish their execution.
-	for c in _ctx_list:
-		c.flags |= RUN_FLAG.ENDING;
-	_cleaning_execution();
+	# Wait coroutines to finish their execution.
 	while _id_pool.size() < max_active_coroutines:
 		logger.p_log("...")
 		await _coroutine_finished;
-	_set_tw_process(false);
+	_set_input_processing(false);
 	logger.p_log("--- Finished ---");
 	return ;
 
@@ -182,6 +174,7 @@ func _get_configuration_warnings() -> PackedStringArray:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not _processing_input: return ;
 	# For the WINPUT instruction
 	var i: int = 0;
 	while i < _waiting_actions_press.size():
@@ -199,12 +192,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			_input_found.emit();
 		else:
 			i += 1;
+	
+	# For the SINPUT instruction
+	for action in _pressed_actions_to_signals:
+		if event.is_action_pressed(action):
+			_pressed_actions_to_signals[action].emit();
+	for action in _released_actions_to_signals:
+		if event.is_action_released(action):
+			_released_actions_to_signals[action].emit();
 
 func _process(_delta: float) -> void:
-	if _processing_tw:
-		if _tw_start == 0: _tw_start = Time.get_ticks_usec();
-		var elapsed := float(Time.get_ticks_usec() - _tw_start) / 1000000.0;
-		twc.check_input(elapsed);
+	if not _processing_input: return ;
+	if _tw_start == 0: _tw_start = Time.get_ticks_usec();
+	var elapsed := float(Time.get_ticks_usec() - _tw_start) / 1000000.0;
+	twc.check_input(elapsed);
 
 
 ## Coroutine that executes Tweenput code from a specific label.
@@ -224,10 +225,9 @@ func _run_async(label: String):
 	var ctx := _ctx_list[id];
 	ctx.reset();
 	#logger.p_log("Starting execution of coroutine from label '%s', with id %d"%[label,id]);
-	while node:
-		_update_time();
-		node = await _step(node, ctx);
+	while node: node = await _step(node, ctx);
 	_release_id_to_pool(id);
+	#logger.p_log("Finished execution of coroutine from label '%s', with id %d"%[label,id]);
 	return ;
 
 ## Executes a single instruction node and handle any set execution flags.
@@ -240,20 +240,16 @@ func _step(node: TweenputParser.LInstr, ctx: Context) -> TweenputParser.LInstr:
 	else:
 		await instr.call();
 	var next_node: TweenputParser.LInstr = node.next;
-	# Consumes flags in order of priority
-	if ctx.flags & RUN_FLAG.JUMPING:
-		next_node = ctx.jmp_target;
-		ctx.jmp_target = null;
-	if ctx.flags & RUN_FLAG.CALLING:
-		ctx.call_stack.append(node.next);
-	if ctx.flags & RUN_FLAG.ENDING:
-		next_node = null;
-	ctx.flags = 0;
+	if ctx.flags != 0: # Consumes flags in order of priority
+		if ctx.flags & RUN_FLAG.JUMPING:
+			next_node = ctx.jmp_target;
+			ctx.jmp_target = null;
+		if ctx.flags & RUN_FLAG.CALLING:
+			ctx.call_stack.append(node.next);
+		if ctx.flags & RUN_FLAG.ENDING:
+			next_node = null;
+		ctx.flags = 0;
 	return next_node;
-
-## Sets the value of a parser variable called "time" with the elapsed seconds since the start of the Tweenput.
-func _update_time():
-	parser.variables["time"] = float(Time.get_ticks_usec() - _tw_start) / 1000000.0;
 
 #region Instructions
 ## Implementation of the instruction set allowed in the Tweenput code.
@@ -266,6 +262,7 @@ var instructions: Dictionary[String, Callable] = {
 	"JMP": __jmp,
 	"CALL": __call,
 	"RET": __ret,
+	"SINPUT": __sinput,
 	"LINK": __link,
 	"UNLINK": __unlink,
 	"END": __end,
@@ -396,18 +393,26 @@ func __swap(a: TweenputParser.LangNode, b: TweenputParser.LangNode):
 ## EMIT variable		 		# ERROR
 ## [/codeblock]
 func __emit(sig_node: TweenputParser.LangNode):
-	if sig_node is TweenputParser.LString: # Internal Signal
-		var sig_name: String = sig_node.value();
-		if sig_name.is_empty(): return ;
+	if sig_node == null:
+		logger.err("Tweenput: EMIT -> No arguments found.");
+		return ;
+	var value = sig_node.value();
+	if value is String: # Internal Signal
+		var sig_name: String = value;
+		if sig_name.is_empty():
+			logger.err("Tweenput: EMIT -> String is empty.");
+			return ;
 		_get_add_signal(sig_name).emit();
 		logger.p_log("EMIT %s"%sig_name);
-	elif sig_node is TweenputParser.LVar: # External Signal
-		var sig_obj: Signal = sig_node.value();
-		if sig_obj.is_null(): return ;
+	elif value is Signal: # External Signal
+		var sig_obj: Signal = value;
+		if sig_obj.is_null():
+			logger.err("Tweenput: EMIT -> Signal is null.");
+			return ;
 		sig_obj.emit();
 		logger.p_log("EMIT %s"%sig_obj.get_name());
 	else:
-		logger.err("Tweenput: EMIT -> Wrong argument type. Must be a string or a variable.");
+		logger.err("Tweenput: EMIT -> Wrong argument type. Must be a string or a Signal.");
 	return ;
 
 ## Pauses the current routine depending on the type of the [param node]'s value:[br]
@@ -473,7 +478,11 @@ func __wait(node: TweenputParser.LangNode):
 			logger.p_log("WAIT %s"%node.node_name);
 			return ;
 		elif val is float:
-			await get_tree().create_timer(val).timeout
+			var timer := get_tree().create_timer(val);
+			timeout_waiting_list.append(timer);
+			await timer.timeout
+			timeout_waiting_list.erase(timer);
+			timer = null;
 			logger.p_log("WAIT %s sec"%val);
 			return ;
 		else:
@@ -481,7 +490,11 @@ func __wait(node: TweenputParser.LangNode):
 			return ;
 	elif node is TweenputParser.LConst:
 		var val = node.value();
-		await get_tree().create_timer(val).timeout
+		var timer := get_tree().create_timer(val);
+		timeout_waiting_list.append(timer);
+		await timer.timeout
+		timeout_waiting_list.erase(timer);
+		timer = null;
 		logger.p_log("WAIT %s sec"%val);
 		return ;
 
@@ -556,7 +569,7 @@ func __call(ctx: Context, node: TweenputParser.LangNode):
 				logger.err("Tweenput: CALL -> Label '%s' unknown."%val);
 				return ;
 		else:
-			logger.err("Tweenput: CALL -> Parameter must result in a String or Callable.")
+			logger.err("Tweenput: CALL -> '%s' isn't a Callable nor a Label."%node.node_name)
 			return ;
 	else:
 		logger.err("Tweenput: CALL -> Only String and Callable are allowed.")
@@ -589,6 +602,57 @@ func __ret(ctx: Context):
 		ctx.flags |= RUN_FLAG.ENDING;
 		return ;
 	logger.p_log("RET");
+
+## Joins the press or release of an input action to a [Signal].[br][br]
+## [param input]: The name of the input action to listen to.[br]
+## [param sig]: The internal or external signal to connect to.[br]
+## [param release]: Whether to listen to the pressed or released event (default to pressed).
+## [codeblock]
+## SINPUT "ui_up", "int_signal" 		# OK
+## SINPUT "ui_up", "int_signal", 1	# OK, replaces previous relation listening for a "release" event instead of "pressed". 
+## SINPUT "ui_down", ext_signal 		# OK
+##
+## SINPUT "ui_up", ""					# OK, removes relation with the "ui_up" input action.
+## END		# Removes relations with all input actions remaining.
+## [/codeblock]
+func __sinput(_ctx: Context,
+		input: TweenputParser.LangNode,
+		sig: TweenputParser.LangNode,
+		release: TweenputParser.LangNode = null):
+	if not input:
+		logger.err("Tweenput: SINPUT -> 1º parameter cannot be null.");
+		return
+	if not sig:
+		logger.err("Tweenput: SINPUT -> 2º parameter cannot be null.");
+		return
+	
+	var input_val = input.value();
+	if input_val is not String:
+		logger.err("Tweenput: SINPUT -> 1º parameter must be String.");
+		return
+		
+	var sig_val = sig.value();
+	var s: Signal;
+	if sig_val is String:
+		s = _get_add_signal(sig_val);
+	elif sig_val is Signal:
+		s = sig_val;
+	else:
+		logger.err("Tweenput: SINPUT -> 2º parameter must be a Signal.");
+		return
+	
+	var is_release: bool = release != null and release.value();
+	if is_release:
+		if input_val.is_empty():
+			_released_actions_to_signals.erase(input_val);
+		elif input_val not in _released_actions_to_signals:
+			_released_actions_to_signals[input_val] = s;
+	else:
+		if input_val.is_empty():
+			_pressed_actions_to_signals.erase(input_val);
+		elif input_val not in _pressed_actions_to_signals:
+			_pressed_actions_to_signals[input_val] = s;
+
 
 ## Connects the execution of a Tweenput coroutine to a [Signal].[br][br]
 ## - [param sig]: The [Signal] to be linked.[br]
@@ -688,8 +752,13 @@ func __unlink(_ctx: Context, sig: TweenputParser.LangNode, label: TweenputParser
 
 ## End the execution of the routine it was called on. If called on the main routine,
 ## it will try to finish the execution of all active coroutines.
-func __end(ctx: Context):
-	ctx.flags |= RUN_FLAG.ENDING;
+func __end(ctx: Context, force_all: TweenputParser.LangNode = null):
+	var terminate: bool = force_all != null and force_all.value();
+	if terminate:
+		for c in _ctx_list: c.flags |= RUN_FLAG.ENDING;
+		_cleaning_execution();
+	else:
+		ctx.flags |= RUN_FLAG.ENDING;
 	logger.p_log("END");
 	return ;
 
@@ -743,6 +812,7 @@ func __qte(center: TweenputParser.LangNode, radius: TweenputParser.LangNode,
 	var tw := TimeWindow.new(c, r, la, ra, accepted, rejected);
 	twc.add_tw(tw, ch);
 	logger.p_log("QTE %4.2f %4.2f %4.2f %4.2f %s %s %d" % [c, r, la, ra, accepted, rejected, ch]);
+	#print("Time:", parser.variables["time"]);
 
 ## Waits for the next QTE in the specified channel to yield a result.
 ## A result is yield if the player press any accepted or rejected input, 
@@ -822,14 +892,36 @@ func __winput(_ctx: Context, input: TweenputParser.LangNode, release: TweenputPa
 
 #endregion
 
+## Resets coroutine id pool, contexts, and input related lists.
+func _pre_execution_tasks():
+	for s in _internal_signals: remove_user_signal(s);
+	_internal_signals.clear();
+	
+	_waiting_actions_release.clear();
+	_waiting_actions_press.clear();
+	_pressed_actions_to_signals.clear();
+	_released_actions_to_signals.clear();
+
+	_linked_coroutines.clear();
+	_id_pool.resize(max_active_coroutines);
+	for i in max_active_coroutines:
+		_id_pool[i] = i;
+	
+	_ctx_list.resize(max_active_coroutines + 1);
+	for i in _ctx_list.size(): _ctx_list[i] = Context.new();
+
 ## Series of procedures to ensure most waiting instructions stop waiting 
 ## when the interpreter wants to end all execution of co-routines.
+## Ends relations with signals too.
 func _cleaning_execution():
 	# Uncloging signal dependent waiting instructions
 	# WINPUT
 	_waiting_actions_release.clear();
 	_waiting_actions_press.clear();
 	_input_found.emit();
+	#SINPUT
+	_pressed_actions_to_signals.clear();
+	_released_actions_to_signals.clear();
 	# WQTE
 	for c in twc._channels:
 		twc.get_channel(c).processed.emit();
@@ -841,6 +933,10 @@ func _cleaning_execution():
 		var t := val as Tween;
 		t.stop();
 		t.finished.emit();
+	#WAIT (Fixed seconds)
+	while timeout_waiting_list.size() > 0:
+		timeout_waiting_list[0].emit_signal("timeout");
+
 
 ## Retrieve (and create dynamically if necessary) signals from the interpreter.
 func _get_add_signal(sig_name: String) -> Signal:
@@ -853,11 +949,15 @@ func _get_add_signal(sig_name: String) -> Signal:
 		s = _internal_signals[sig_name];
 	return s;
 
-func _set_tw_process(val: bool):
-	_processing_tw = val;
+func _set_input_processing(val: bool):
+	_processing_input = val;
 	if val:
 		twc.clear_channels();
 		_tw_start = 0;
+
+## Sets the value of a parser variable called "time" with the elapsed seconds since the start of the Tweenput.
+func _update_time():
+	parser.variables["time"] = float(Time.get_ticks_usec() - _tw_start) / 1000000.0;
 
 ## Retrieve one free coroutine ID from the pool (up to [member max_active_coroutines]).
 func _get_id_from_pool() -> int:
@@ -869,4 +969,3 @@ func _release_id_to_pool(id: int) -> void:
 	if id in _id_pool: return ;
 	_id_pool.append(id);
 	_coroutine_finished.emit();
-	#logger.p_log("New size: ",_id_pool.size());

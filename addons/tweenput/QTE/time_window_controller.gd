@@ -53,20 +53,20 @@ class Channel:
 		for i in range(last_valid, tw_list.size()):
 			var tw := tw_list[i];
 			if tw.is_early(time): break ;
-
+			
 			var res := tw.check_input(time);
 			results_list[i] = res;
 			if res == TimeWindow.RESULT.IGNORED: # Must listen again next check.
 				break ;
 			did_process = true;
-			last_valid = i;
 			if res != TimeWindow.RESULT.OUTSIDE: # Consumed (correct/rejected/too_xxxx)
+				last_valid = i + 1;
 				break ;
 		if did_process: processed.emit();
 	
 	func get_last_processed_value() -> int:
-		if last_valid < 0: return TimeWindow.RESULT.IGNORED;
-		return results_list[last_valid];
+		if last_valid < 1: return TimeWindow.RESULT.IGNORED;
+		return results_list[last_valid - 1];
 
 var _channels: Dictionary[int, Channel];
 
