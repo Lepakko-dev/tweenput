@@ -50,22 +50,19 @@ class Channel:
 	## If you want to check a previous time, call [method Channel.reset_time] previously.
 	func check_input(time: float):
 		var did_process := false;
-		for i in range(last_valid, tw_list.size()):
-			var tw := tw_list[i];
-			if tw.is_early(time): break ;
-			
+		while last_valid < tw_list.size():
+			var tw := tw_list[last_valid];
+			if tw.is_early(time):
+				break ;
 			var res := tw.check_input(time);
-			results_list[i] = res;
-			if res == TimeWindow.RESULT.IGNORED: # Must listen again next check.
+			results_list[last_valid] = res;
+			if res == TimeWindow.RESULT.IGNORED: # No listened input pressed.
 				break ;
 			did_process = true;
-			if res != TimeWindow.RESULT.OUTSIDE: # Consumed (correct/rejected/too_xxxx)
-				last_valid = i + 1;
-				break ;
+			last_valid += 1;
 		if did_process: processed.emit();
 	
 	func get_last_processed_value() -> int:
-		if last_valid < 1: return TimeWindow.RESULT.IGNORED;
 		return results_list[last_valid - 1];
 
 var _channels: Dictionary[int, Channel];

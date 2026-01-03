@@ -61,6 +61,7 @@ instructions = Dictionary[String, Callable]({
 "QTE": Callable(),
 "RET": Callable(),
 "SET": Callable(),
+"SINPUT": Callable(),
 "STOP": Callable(),
 "SWAP": Callable(),
 "UNLINK": Callable(),

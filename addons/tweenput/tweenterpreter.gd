@@ -835,7 +835,10 @@ func __wqte(channel: TweenputParser.LangNode):
 
 	var res_dict: Dictionary = parser.variables.get_or_add("res_qte", {});
 	res_dict[channel_id] = result;
-	logger.p_log("WQTE %d (%s)" % [channel_id, TimeWindow.RESULT.find_key(result)]);
+	logger.p_log("WQTE %d (%d,%s)" % [channel_id, 
+		twc.get_channel(channel_id).last_valid, 
+		TimeWindow.RESULT.find_key(result)
+	]);
 
 ## Stops and emits the [signal Tween.finished] signal of the given [Tween]. [br]
 ## Prefer this instruction to using [code] CALL tween.stop [/code] because [method Tween.stop]
