@@ -1,0 +1,15 @@
+title: Tweenput Docs
+description: Documentation for the Tweenput Godot Addon.
+theme: just-the-docs
+
+url: https://Lepakko-dev.github.io/tweenput
+
+aux_links:
+  "Tweenput on Github":
+  - "//github.com/Lepakko-dev/tweenput"
+#  Template Repository: https://github.com/just-the-docs/just-the-docs-template
+
+# TODO
+#logo: "/docs/assets/images/tweenput-logo.png"
+#favicon_ico: "/docs/assets/images/favicon.ico"
+color_scheme: dark
