@@ -7,7 +7,7 @@ class Channel:
 	var tw_list: Array[TimeWindow];
 	## Index of the last valid TW (TWs behind this one won't be check anymore).
 	var last_valid: int;
-	## Stores the result of every TimeWindow of the [variable Channel.tw_list].
+	## Stores the result of every TimeWindow of the [member Channel.tw_list].
 	var results_list: Array[int];
 	## Reach of the last TimeWindow in this channel.
 	var channel_end: float;

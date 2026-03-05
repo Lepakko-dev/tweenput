@@ -33,9 +33,9 @@ var mod_pre: float;
 ## Modified value of [member post_window] after the [TimeWindow] has been adjusted.
 var mod_post: float;
 
-## The list of input names the window will count as [constant CORRECT].
+## The list of input names the window will count as [enum CORRECT].
 var accepted_inputs: Array[String];
-## The list of input names the window will count as [constant REJECTED].
+## The list of input names the window will count as [enum REJECTED].
 var rejected_inputs: Array[String];
 
 
