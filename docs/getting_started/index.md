@@ -2,6 +2,7 @@
 layout: default
 title: Getting Started
 nav_order: 1
+has_toc: true
 ---
 
 # Installation
@@ -9,16 +10,15 @@ Tweenput is built using only GDScript and doesn't use any autoloads which means 
 The directory structure should look like the following:
 ```
 res://
-    addons
-        tweenput
-            examples
-                ...
-            QTE
-                ...
-            plugin.cfg
-            tweenput.gd
-            ...
-    ...
+|   addons
+|   |   tweenput
+|   |   |   examples
+|   |   |   |   ...
+|   |   |   QTE
+|   |   |   |   ...
+|   |   |   plugin.cfg
+|   |   |   tweenput.gd
+|   |   |   ...
 ```
 
 # How To Use
@@ -111,7 +111,7 @@ Node2D (example.gd)
 # Next Steps
 You should now be able to run the scene and interact with the Tweenput!
 
-But this is just the basics, you can deep dive into other concepts and instructions in the manual!
+But this is just the basics, you can deep dive into other concepts and instructions in the [manual](/manual)!
 
 [Tweenterpreter]: /class_reference/Tweenterpreter
 [Instructions]: /manual#instruction_set

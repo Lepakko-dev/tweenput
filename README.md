@@ -5,6 +5,8 @@ An addon for [Godot 4.5+](https://godotengine.org/) that unifies the official Tw
 To install the plugin you can download a copy and put the `addons/tweenput/` directory into your project's `addons` directory.
 Then open your project's settings and enable 'Tweenput' in the Plugins tab.
 
+You can also visit the github hosted [documentation page](https://github.com/Lepakko-dev/tweenput)!
+
 ## Features
 
 - Assembly inspired grammar with support for C-like expressions.

@@ -6,6 +6,7 @@ has_toc: true
 ---
 
 # Instruction Set
+{: #instruction_set}
 The general grammar for all instructions in Tweenput follows the structure `INSTR PARAM , PARAM , ...`.
 Each instruction has a specific number of accepted parameters although some can be omitted in certain cases.
 
@@ -237,15 +238,16 @@ First parameter is a String with the name of an input action.
 Second parameter is an expression that must be comparable. Said value will indicate whether to wait for the press or release of the input action (optional, defaults to pressed).
 # Defining and Using Tweens Inside a Tweenput
 
-TODO TODO TODO TODO TODO TODO 
+...
 
 # Adding External Variables to a Tweenput and Retrieving them
-If you have alreay been through the [Getting Started](GettingStarted) page, you may have seen how we can include external variables from your game to the tweenput with the `set_variable()` or `set_variables()` methods of the [Tweenterpreter]. This is necessary in order to give the tweenput access to other nodes.
+If you have alreay been through the [Getting Started](/getting_started) page, you may have seen how we can include external variables from your game to the tweenput with the [set_variable()] or `set_variables()` methods of the [Tweenterpreter]. This is necessary in order to give the tweenput access to other nodes.
 
-What's helpful is we can also read ANY value inside a tweenput as all variables (including internal ones) are stored in the [Tweenterpreter]`.parser.variables` member. Retrieval of data is also necessary when we want for example to know if the player succeeded or failed some input press.
+What's helpful is we can also read ANY value inside a tweenput as all variables (including internal ones) are stored in the [Tweenterpreter.parser.variables](/class_reference/TweenputParser/#variables) member. Retrieval of data is also necessary when we want for example to know if the player succeeded or failed some input press.
 
 All variables have a name and can store any type of value, just as `Variant` can!
 # Time Windows (Quick Time Events)
+{: #time_window_system}
 The Time Window is a data structure that stores which input must or not be pressed in a specific time span. This time span is given as a specific time (referred as the `center`), and a `radius` (or range) that expands before and after that center.
 
 Time Windows also include an external range for each side which we'll call "left arm" and "right arm". These will help check if an input was pressed too early or too late, and by extension deter whether the player failed or just didn't press anything at all. You can think of these "arms" as times where the player must NOT press the input for that Time Window.
@@ -256,14 +258,15 @@ This "keep radius size policy" is thought out for Tweenputs where a series of in
 
 Okay, but what if I want the player to press more than one input at a given time? You may ask. Don't worry, that's what the channels are for. When defining a Time Window you can also specify which channel to be included in. All channels are independent of each other so two Time Windows in different channels won't count as an overlap and therefore won't shrink each other.
 
-Lastly, just remark that Time Windows defined with the `QTE` instruction are always relative to the time when the tweenput started. So a Time Window of center 0.5 will be checked 0.5 seconds after the tweenput was executed.
+Lastly, just remark that Time Windows defined with the [QTE](#qte) instruction are always relative to the time when the tweenput started. So a Time Window of center 0.5 will be checked 0.5 seconds after the tweenput was executed.
 
 (Of course, any Time Window defined with a time in the past will be ignored as we haven't invented yet time travel and we can only move forward.)
 # Other
 
 ## Call Stack
-
+...
 ## Co-routines
+...
 
 ## Other Variables
 Inside of every Tweenput there is also some variables that are always present and automatically handled. 
@@ -274,13 +277,10 @@ This variable is constantly updated to hold the elapsed time since the start of 
 ### Internal `res_qte`
 This variable holds the result of the last finished Time Window for every channel.
 It takes the form of a dictionary where keys are channels and the values are the result of the last finished Time Window (success, fail, miss, étc) as an integer.
-The types of result of a Time Window follow the RESULT enum, here's the list of integer values each type of result is represented as:
+The types of result of a Time Window follow the [RESULT enum](/class_reference/TimeWindow#enumerations), here's the list of integer values each type of result is represented as:
 - CORRECT = 1
 - IGNORED = 0 (No relevant input has been pressed while the TW is active)
 - TOO_LATE = -1 (Some input was pressed after the radius)
 - TOO_EARLY = -2 (Some input was pressed before the radius)
 - REJECTED = -3 (Some input that was to be avoided was pressed)
 - OUTSIDE = -4 (No relevant input was pressed and the TW finished)
-
-[GettingStarted]: ...
-[Tweenterpreter]: ...
