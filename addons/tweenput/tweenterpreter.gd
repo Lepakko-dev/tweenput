@@ -148,6 +148,10 @@ func run():
 func set_variable(var_name: String, value: Variant) -> void:
 	parser.variables[var_name] = value;
 
+func set_variables(dict: Dictionary[String,Variant]) -> void:
+	for var_name in dict:
+		parser.variables[var_name] = dict[var_name];
+
 
 func _init() -> void:
 	twc = TimeWindowController.new();
@@ -159,18 +163,10 @@ func _ready() -> void:
 		if child is TweenputParser:
 			parser = child;
 			break ;
-	if parser: parser.instructions = instructions;
-
-func _get_configuration_warnings() -> PackedStringArray:
-	var warnings: PackedStringArray = [];
-	var _has_parser: bool = false;
-	for child in get_children():
-		if child is TweenputParser:
-			_has_parser = true;
-			break ;
-	if not _has_parser:
-		warnings.append("Tweenterpreter must have a TweenputParser node as a child");
-	return warnings;
+	if not parser:
+		parser = TweenputParser.new();
+		add_child(parser);
+	parser.instructions = instructions;
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -843,7 +839,7 @@ func __wqte(channel: TweenputParser.LangNode):
 ## Stops and emits the [signal Tween.finished] signal of the given [Tween]. [br]
 ## Prefer this instruction to using [code] CALL tween.stop [/code] because [method Tween.stop]
 ## doesn't emits the [signal Tween.finished] signal and instructions that wait tweens
-## won't work propertly when said tweens are stoped.[br][br]
+## won't work properly when said tweens are stoped.[br][br]
 ## - [param node_t]: [Tween] to stop. Cannot be a [String].
 func __stop(node_t: TweenputParser.LangNode):
 	if not node_t:
