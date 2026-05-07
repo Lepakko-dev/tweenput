@@ -238,7 +238,56 @@ First parameter is a String with the name of an input action.
 Second parameter is an expression that must be comparable. Said value will indicate whether to wait for the press or release of the input action (optional, defaults to pressed).
 # Defining and Using Tweens Inside a Tweenput
 
-...
+To use Tweens inside a Tweenput you have two options, either pass the tween as an external variable, or you just define it inside the tweenput. To define a Tween you must follow this structure:
+~~~
+tweenName {
+    ...
+}
+~~~
+Inside a definition you can use most tween function you usually call when constructing your tweens.
+
+Here's a list of instructions you can use inside a tween.
+| Instruction        | Equivalent method     |
+|:------------------:|:---------------------:|
+| BIND               | bind_node             |
+| INTERVAL           | tween_interval        |
+| CALLBACK           | tween_callback        |
+| METHOD             | tween_method          |
+| PROPERTY           | tween_property        |
+| SUBTWEEN           | tween_subtween        |
+| LOOPS              | set_loops             |
+| PARALLEL           | set_parallel          |
+| EASE               | set_ease              |
+| IGNORE_TIME_SCALE  | set_ignore_time_scale |
+| PAUSE_MODE         | set_pause_mode        |
+| PROCESS_MODE       | set_process_mode      |
+| SPEED_SCALE        | set_speed_scale       |
+| TRANS              | set_trans             |
+
+Parameters for each instruction are set by writing them separated by commas. 
+You can use variables to define tweens, and these are re-read every time the tween is called.
+~~~
+set final_val, 360
+set dur, 1.0
+
+# Tween definition
+tween_rotate{
+    property object, "rotation_degrees", final_val, dur
+    # Can also write comments inside a tween definition.
+}
+~~~
+
+Once you have defined a tween, you can use it anywhere else in the Tweenput just by writing its name as if it were an instruction. A tween called this way won't be waited and will execute in parallel.
+Alternatively, by calling a tween inside the **WAIT** instruction, the tween will stop the tweenput's (coroutine) execution until the tween has finished.
+
+You can execute the tween multiple times inside a Tweenput without needing to build it again as it will automatically do using its definition.
+~~~
+# Calling the previously defined tween
+WAIT tween_rotate
+tween_rotate
+END
+~~~
+(Technically the last tween called before END won't really be executed to its end because the END instruction will end the tweenput and therefore stop all playing tweens left.)
 
 # Adding External Variables to a Tweenput and Retrieving them
 If you have alreay been through the [Getting Started](/getting_started) page, you may have seen how we can include external variables from your game to the tweenput with the [set_variable()] or `set_variables()` methods of the [Tweenterpreter]. This is necessary in order to give the tweenput access to other nodes.
@@ -261,12 +310,41 @@ Okay, but what if I want the player to press more than one input at a given time
 Lastly, just remark that Time Windows defined with the [QTE](#qte) instruction are always relative to the time when the tweenput started. So a Time Window of center 0.5 will be checked 0.5 seconds after the tweenput was executed.
 
 (Of course, any Time Window defined with a time in the past will be ignored as we haven't invented yet time travel and we can only move forward.)
-# Other
+# Flow of Execution
 
 ## Call Stack
-...
-## Co-routines
-...
+By default a tweenput is executed in one coroutine, but can make use of other secondary coroutines. Each coroutine has a `Context` that stores the coroutine's state, one feature of this context is its ability to store subroutine calls by using a call stack.
+Just like most programming languages, call stacks enable users to return to the previous execution flow once a subroutine has ended, and since there's a call stack for each coroutine, multiple coroutines can enter any ammount of subroutines concurrently without problem.
+~~~
+SET i, 0
+CALL routine # 1. Executes code from label "routine" as a subroutine
+END # 3. This is executed after the RET instruction bellow
+
+routine:
+SET i, i+1
+RET # 2. End of subroutine, jumps to the next instruction after the CALL instruction
+~~~
+## Coroutines
+As the name implies Coroutines are routines executed concurrently (so thechnically not in parallel but seamingly so).
+There's no direct way to create a coroutine in a Tweenput, because these are meant to be used to make a tweenput more reactive to user input.
+The usual way to create a coroutine is using the LINK instruction.
+~~~
+SET i, 0
+EMIT "signal" # This creates an internal signal
+
+LINK "signal", "coroutine"
+EMIT "signal"
+END
+# Value of 'i' at the end of the tweenput is 1 since the tweenput waits for all coroutines to end.
+
+coroutine:
+SET i, i+1
+END
+~~~
+When a coroutine encounters an END instruction, said corutine will finish but won't stop execution of others corutines unless
+the END instruction is called with an extra parameter and this parameter yields true (number other than 0 or a logic expression).
+
+To make sure tweenputs don't cosume too much cpu, the `Tweenterpreter` has a limit of how many coroutines can be running at a time. Any coroutine request will be omited until the number of coroutines is less than the limit.
 
 ## Other Variables
 Inside of every Tweenput there is also some variables that are always present and automatically handled. 
