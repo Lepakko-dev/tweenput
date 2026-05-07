@@ -244,9 +244,10 @@ tweenName {
     ...
 }
 ~~~
-Inside a definition you can use most tween function you usually call when constructing your tweens.
+Inside a definition you can use most tween functions you usually call when constructing your tweens.
 
 Here's a list of instructions you can use inside a tween.
+
 | Instruction        | Equivalent method     |
 |:------------------:|:---------------------:|
 | BIND               | bind_node             |
